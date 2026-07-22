@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { JWT, OAuth2Client } from "google-auth-library";
+import { getAccountStore } from "./accountStore.js";
 
 export const GMAIL_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
@@ -69,6 +70,7 @@ export function loadStoredToken(path = resolveTokenPath()): StoredToken | null {
   }
 }
 
+/** @deprecated Single-account file write — prefer saveAuthorizedAccount(). */
 export function saveStoredToken(token: StoredToken, path = resolveTokenPath()): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(token, null, 2), "utf8");
@@ -100,46 +102,6 @@ function createServiceAccountAuth(): OAuth2Client | JWT {
   });
 }
 
-function createOAuthClient(): OAuth2Client {
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
-  if (!clientId || !clientSecret) {
-    throw new Error(
-      "Set GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET, or use GOOGLE_SERVICE_ACCOUNT + GOOGLE_WORKSPACE_USER_EMAIL",
-    );
-  }
-
-  const redirectUri =
-    process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim() ??
-    "http://127.0.0.1:3847/oauth2callback";
-
-  const oauth = new OAuth2Client({
-    clientId,
-    clientSecret,
-    redirectUri,
-  });
-
-  const refreshToken =
-    process.env.GOOGLE_REFRESH_TOKEN?.trim() ??
-    loadStoredToken()?.refresh_token;
-
-  if (!refreshToken) {
-    throw new Error(
-      "No refresh token found. Run `npm run authorize` in google-workspace-mcp after setting OAuth env vars.",
-    );
-  }
-
-  oauth.setCredentials({ refresh_token: refreshToken });
-  return oauth;
-}
-
-export async function getGoogleAuthClient(): Promise<OAuth2Client | JWT> {
-  if (process.env.GOOGLE_SERVICE_ACCOUNT?.trim()) {
-    return createServiceAccountAuth();
-  }
-  return createOAuthClient();
-}
-
 export function createOAuthClientForSetup(): OAuth2Client {
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim();
@@ -154,14 +116,64 @@ export function createOAuthClientForSetup(): OAuth2Client {
   return new OAuth2Client({ clientId, clientSecret, redirectUri });
 }
 
+export function createOAuthClientFromRefreshToken(
+  refreshToken: string,
+): OAuth2Client {
+  const oauth = createOAuthClientForSetup();
+  oauth.setCredentials({ refresh_token: refreshToken });
+  return oauth;
+}
+
+function resolveAccountEmail(accountEmail?: string): string | undefined {
+  const explicit = accountEmail?.trim().toLowerCase();
+  if (explicit) return explicit;
+
+  const envDefault = process.env.GOOGLE_DEFAULT_ACCOUNT_EMAIL?.trim().toLowerCase();
+  return envDefault || undefined;
+}
+
+async function createOAuthClientForAccount(accountEmail?: string): Promise<OAuth2Client> {
+  const store = getAccountStore();
+  await store.migrateLegacyIfNeeded();
+
+  const email =
+    resolveAccountEmail(accountEmail) ?? (await store.getDefaultEmail());
+
+  if (!email) {
+    throw new Error(
+      "No Google account authorized. Run /authorize or add accountEmail after authorizing.",
+    );
+  }
+
+  const account = await store.getAccount(email);
+  if (!account?.refresh_token?.trim()) {
+    throw new Error(
+      `No refresh token for ${email}. Re-authorize: /authorize?hashKey=...&label=optional-label`,
+    );
+  }
+
+  return createOAuthClientFromRefreshToken(account.refresh_token);
+}
+
+export async function getGoogleAuthClient(
+  accountEmail?: string,
+): Promise<OAuth2Client | JWT> {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT?.trim()) {
+    return createServiceAccountAuth();
+  }
+  return createOAuthClientForAccount(accountEmail);
+}
+
 export function getAuthorizationUrl(
   oauth: OAuth2Client,
   state?: string,
+  options?: { loginHint?: string },
 ): string {
   return oauth.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
     scope: GMAIL_SCOPES,
     ...(state ? { state } : {}),
+    ...(options?.loginHint ? { login_hint: options.loginHint } : {}),
   });
 }

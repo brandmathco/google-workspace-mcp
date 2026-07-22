@@ -3,11 +3,11 @@ import {
   assertAuthorizeHashKey,
   extractAuthorizeHashKeyFromRequest,
 } from "./auth/authorizeKey.js";
+import { renderAuthorizationCompleteHtml } from "./auth/authorizeCompleteHtml.js";
+import { saveAuthorizedAccount } from "./auth/accountStore.js";
 import {
   createOAuthClientForSetup,
   getAuthorizationUrl,
-  resolveTokenPath,
-  saveStoredToken,
 } from "./auth/googleAuth.js";
 import { consumeOAuthState, createOAuthState } from "./auth/oauthStateStore.js";
 
@@ -44,7 +44,14 @@ export function registerAuthorizeRoutes(app: Express): void {
 
     try {
       const oauth = createOAuthClientForSetup();
-      const state = createOAuthState();
+      const label = queryParam(req.query.label);
+      const makeDefault = queryParam(req.query.default) === "1";
+      const statePayload = JSON.stringify({
+        nonce: createOAuthState(),
+        label,
+        makeDefault,
+      });
+      const state = Buffer.from(statePayload, "utf8").toString("base64url");
       const authUrl = getAuthorizationUrl(oauth, state);
       res.redirect(authUrl);
     } catch (error) {
@@ -54,9 +61,35 @@ export function registerAuthorizeRoutes(app: Express): void {
   });
 
   app.get("/oauth2callback", async (req, res) => {
-    const state = typeof req.query.state === "string" ? req.query.state : undefined;
-    if (!consumeOAuthState(state)) {
-      sendAuthorizeDenied(res, "Invalid or expired OAuth state. Start from /authorize with a valid hash key.");
+    const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+    let label: string | undefined;
+    let makeDefault = false;
+
+    if (stateRaw) {
+      try {
+        const parsed = JSON.parse(
+          Buffer.from(stateRaw, "base64url").toString("utf8"),
+        ) as { nonce?: string; label?: string; makeDefault?: boolean };
+        if (!consumeOAuthState(parsed.nonce)) {
+          sendAuthorizeDenied(
+            res,
+            "Invalid or expired OAuth state. Start from /authorize with a valid hash key.",
+          );
+          return;
+        }
+        label = parsed.label;
+        makeDefault = parsed.makeDefault === true;
+      } catch {
+        if (!consumeOAuthState(stateRaw)) {
+          sendAuthorizeDenied(
+            res,
+            "Invalid or expired OAuth state. Start from /authorize with a valid hash key.",
+          );
+          return;
+        }
+      }
+    } else {
+      sendAuthorizeDenied(res, "Missing OAuth state.");
       return;
     }
 
@@ -75,26 +108,20 @@ export function registerAuthorizeRoutes(app: Express): void {
     try {
       const oauth = createOAuthClientForSetup();
       const { tokens } = await oauth.getToken(code);
-      saveStoredToken({
-        refresh_token: tokens.refresh_token ?? undefined,
-        access_token: tokens.access_token ?? undefined,
-        expiry_date: tokens.expiry_date ?? undefined,
-        token_type: tokens.token_type ?? undefined,
-        scope: tokens.scope ?? undefined,
-      });
-      const tokenPath = resolveTokenPath();
+      const account = await saveAuthorizedAccount(
+        {
+          refresh_token: tokens.refresh_token ?? undefined,
+          access_token: tokens.access_token ?? undefined,
+          expiry_date: tokens.expiry_date ?? undefined,
+          token_type: tokens.token_type ?? undefined,
+          scope: tokens.scope ?? undefined,
+        },
+        { label, makeDefault },
+      );
 
-      res
-        .status(200)
-        .type("html")
-        .send(
-          "<h1>Authorization complete</h1><p>Google Workspace MCP is connected. You can close this tab.</p>",
-        );
+      res.status(200).type("html").send(renderAuthorizationCompleteHtml(account.email));
 
-      console.log(`Saved refresh token to ${tokenPath}`);
-      if (tokens.refresh_token) {
-        console.log("Update GOOGLE_REFRESH_TOKEN in Fly secrets if this app uses env-based tokens.");
-      }
+      console.log(`Saved Google account ${account.email} to multi-account store`);
     } catch (authError) {
       const message =
         authError instanceof Error ? authError.message : String(authError);

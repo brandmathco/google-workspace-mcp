@@ -4,6 +4,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { getAccountStore } from "./auth/accountStore.js";
 import { getGoogleAuthClient } from "./auth/googleAuth.js";
 import {
   getMessage,
@@ -15,7 +16,50 @@ import {
 import { createCalendarEvent, listUpcomingEvents } from "./services/calendar.js";
 import { createTask, listTasks } from "./services/tasks.js";
 
+const accountEmailProperty = {
+  accountEmail: {
+    type: "string",
+    description:
+      "Google account email to use (e.g. you@gmail.com). Defaults to the configured default account.",
+  },
+} as const;
+
 const tools = [
+  {
+    name: "google_list_accounts",
+    description:
+      "List all authorized Google accounts (emails) and which one is the default for MCP tools.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "google_set_default_account",
+    description: "Set the default Google account used when accountEmail is omitted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accountEmail: {
+          type: "string",
+          description: "Email of an already-authorized account",
+        },
+      },
+      required: ["accountEmail"],
+    },
+  },
+  {
+    name: "google_remove_account",
+    description:
+      "Remove an authorized Google account and its stored refresh token from the account store.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        accountEmail: {
+          type: "string",
+          description: "Email of the account to remove",
+        },
+      },
+      required: ["accountEmail"],
+    },
+  },
   {
     name: "gmail_list_messages",
     description:
@@ -23,6 +67,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         query: { type: "string", description: "Gmail search query" },
         maxResults: {
           type: "number",
@@ -42,6 +87,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         messageId: { type: "string", description: "Gmail message ID" },
       },
       required: ["messageId"],
@@ -53,6 +99,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         messageId: { type: "string", description: "Gmail message ID to reply to" },
         body: { type: "string", description: "Plain-text reply body" },
         replyAll: {
@@ -70,6 +117,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         messageId: { type: "string", description: "Gmail message ID" },
         addLabelIds: {
           type: "array",
@@ -88,7 +136,10 @@ const tools = [
   {
     name: "gmail_list_labels",
     description: "List Gmail labels with IDs (useful before moving mail).",
-    inputSchema: { type: "object", properties: {} },
+    inputSchema: {
+      type: "object",
+      properties: { ...accountEmailProperty },
+    },
   },
   {
     name: "calendar_create_event",
@@ -96,6 +147,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         summary: { type: "string", description: "Event title" },
         description: { type: "string", description: "Event description" },
         location: { type: "string", description: "Event location" },
@@ -130,6 +182,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         maxResults: { type: "number", description: "Max events (default 10)" },
         calendarId: { type: "string", description: "Calendar ID (default primary)" },
       },
@@ -141,6 +194,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         title: { type: "string", description: "Task title" },
         notes: { type: "string", description: "Task notes/details" },
         due: {
@@ -161,6 +215,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        ...accountEmailProperty,
         listTitle: { type: "string", description: "Task list title" },
         maxResults: { type: "number", description: "Max tasks (default 20)" },
       },
@@ -168,29 +223,36 @@ const tools = [
   },
 ] as const;
 
+const accountEmailSchema = z.string().email().optional();
+
 const listMessagesSchema = z.object({
+  accountEmail: accountEmailSchema,
   query: z.string().optional(),
   maxResults: z.number().int().positive().max(50).optional(),
   labelIds: z.array(z.string()).optional(),
 });
 
 const getMessageSchema = z.object({
+  accountEmail: accountEmailSchema,
   messageId: z.string().min(1),
 });
 
 const replySchema = z.object({
+  accountEmail: accountEmailSchema,
   messageId: z.string().min(1),
   body: z.string().min(1),
   replyAll: z.boolean().optional(),
 });
 
 const moveSchema = z.object({
+  accountEmail: accountEmailSchema,
   messageId: z.string().min(1),
   addLabelIds: z.array(z.string()).optional(),
   removeLabelIds: z.array(z.string()).optional(),
 });
 
 const createEventSchema = z.object({
+  accountEmail: accountEmailSchema,
   summary: z.string().min(1),
   description: z.string().optional(),
   location: z.string().optional(),
@@ -202,11 +264,13 @@ const createEventSchema = z.object({
 });
 
 const listEventsSchema = z.object({
+  accountEmail: accountEmailSchema,
   maxResults: z.number().int().positive().max(50).optional(),
   calendarId: z.string().optional(),
 });
 
 const createTaskSchema = z.object({
+  accountEmail: accountEmailSchema,
   title: z.string().min(1),
   notes: z.string().optional(),
   due: z.string().optional(),
@@ -214,8 +278,17 @@ const createTaskSchema = z.object({
 });
 
 const listTasksSchema = z.object({
+  accountEmail: accountEmailSchema,
   listTitle: z.string().optional(),
   maxResults: z.number().int().positive().max(100).optional(),
+});
+
+const setDefaultAccountSchema = z.object({
+  accountEmail: z.string().email(),
+});
+
+const removeAccountSchema = z.object({
+  accountEmail: z.string().email(),
 });
 
 function jsonResult(data: unknown) {
@@ -235,7 +308,7 @@ export function createGoogleWorkspaceMcpServer(): Server {
   const server = new Server(
     {
       name: "google-workspace-mcp",
-      version: "1.0.0",
+      version: "1.1.0",
     },
     {
       capabilities: {
@@ -250,20 +323,49 @@ export function createGoogleWorkspaceMcpServer(): Server {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
-      const auth = await getGoogleAuthClient();
       const { name, arguments: args } = request.params;
 
       switch (name) {
+        case "google_list_accounts": {
+          const store = getAccountStore();
+          await store.migrateLegacyIfNeeded();
+          const accounts = await store.listAccounts();
+          const defaultEmail = await store.getDefaultEmail();
+          return jsonResult({ defaultAccountEmail: defaultEmail, accounts });
+        }
+        case "google_set_default_account": {
+          const input = setDefaultAccountSchema.parse(args ?? {});
+          const store = getAccountStore();
+          await store.setDefaultEmail(input.accountEmail);
+          return jsonResult({ ok: true, defaultAccountEmail: input.accountEmail });
+        }
+        case "google_remove_account": {
+          const input = removeAccountSchema.parse(args ?? {});
+          const store = getAccountStore();
+          const removed = await store.removeAccount(input.accountEmail);
+          if (!removed) {
+            return errorResult(`Account not found: ${input.accountEmail}`);
+          }
+          const defaultEmail = await store.getDefaultEmail();
+          return jsonResult({
+            ok: true,
+            removed: input.accountEmail,
+            defaultAccountEmail: defaultEmail,
+          });
+        }
         case "gmail_list_messages": {
           const input = listMessagesSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await listMessages(auth, input));
         }
         case "gmail_get_message": {
           const input = getMessageSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await getMessage(auth, input.messageId));
         }
         case "gmail_reply": {
           const input = replySchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await replyToMessage(auth, input));
         }
         case "gmail_move": {
@@ -271,25 +373,34 @@ export function createGoogleWorkspaceMcpServer(): Server {
           if (!input.addLabelIds?.length && !input.removeLabelIds?.length) {
             return errorResult("Provide addLabelIds and/or removeLabelIds");
           }
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await moveMessage(auth, input));
         }
         case "gmail_list_labels": {
+          const accountEmail = accountEmailSchema.parse(
+            (args as { accountEmail?: string } | undefined)?.accountEmail,
+          );
+          const auth = await getGoogleAuthClient(accountEmail);
           return jsonResult(await listLabels(auth));
         }
         case "calendar_create_event": {
           const input = createEventSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await createCalendarEvent(auth, input));
         }
         case "calendar_list_upcoming": {
           const input = listEventsSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await listUpcomingEvents(auth, input));
         }
         case "tasks_create": {
           const input = createTaskSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await createTask(auth, input));
         }
         case "tasks_list": {
           const input = listTasksSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await listTasks(auth, input));
         }
         default:

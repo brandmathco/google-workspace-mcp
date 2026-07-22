@@ -3,7 +3,9 @@ dist/
 .env
 .env.local
 token.json
+accounts.json
 credentials/
 *.log
 .DS_Store
 fly.toml
+scripts/authorize-targets.json

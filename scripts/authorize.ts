@@ -3,15 +3,13 @@ import { URL } from "node:url";
 import {
   assertAuthorizeHashKey,
 } from "../src/auth/authorizeKey.js";
+import { renderAuthorizationCompleteHtml } from "../src/auth/authorizeCompleteHtml.js";
+import { saveAuthorizedAccount } from "../src/auth/accountStore.js";
 import {
   createOAuthClientForSetup,
   getAuthorizationUrl,
-  saveStoredToken,
-  resolveTokenPath,
 } from "../src/auth/googleAuth.js";
-import { loadEnvFile } from "../src/loadEnv.js";
-
-loadEnvFile();
+import { createOAuthState } from "../src/auth/oauthStateStore.js";
 
 function resolveHashKeyFromArgs(): string | undefined {
   const args = process.argv.slice(2);
@@ -28,16 +26,30 @@ function resolveHashKeyFromArgs(): string | undefined {
   return undefined;
 }
 
+function resolveLabelFromArgs(): string | undefined {
+  const args = process.argv.slice(2);
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg.startsWith("--label=")) {
+      return arg.slice("--label=".length);
+    }
+    if (arg === "--label" && args[index + 1]) {
+      return args[index + 1];
+    }
+  }
+  return undefined;
+}
+
 try {
-  assertAuthorizeHashKey(resolveHashKeyFromArgs());
+  assertAuthorizeHashKey(resolveHashKeyFromArgs() ?? process.env.AUTHORIZE_HASH_KEY);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   console.error(
-    "\nUsage: npm run authorize -- --hash-key=YOUR_AUTHORIZE_HASH_KEY",
+    "\nUsage: npm run authorize [-- --hash-key=YOUR_AUTHORIZE_HASH_KEY] [--label=my-label]",
   );
   console.error(
-    "The hash key must match AUTHORIZE_HASH_KEY configured in .env (not read automatically from .env).",
+    "Hash key is read from --hash-key or AUTHORIZE_HASH_KEY in .env.",
   );
   process.exit(1);
 }
@@ -48,15 +60,19 @@ const redirectUri =
 
 const redirect = new URL(redirectUri);
 const port = Number(redirect.port || 3847);
+const label = resolveLabelFromArgs();
 
 const oauth = createOAuthClientForSetup();
-const authUrl = getAuthorizationUrl(oauth);
+const statePayload = JSON.stringify({ nonce: createOAuthState(), label });
+const state = Buffer.from(statePayload, "utf8").toString("base64url");
+const authUrl = getAuthorizationUrl(oauth, state);
 
-console.log("\nGoogle Workspace MCP authorization\n");
+console.log("\nGoogle Workspace MCP authorization (multi-account)\n");
 console.log("1. Open this URL in your browser:\n");
 console.log(authUrl);
 console.log("\n2. Sign in and approve access.");
-console.log(`3. You will be redirected to ${redirectUri}\n`);
+console.log(`3. You will be redirected to ${redirectUri}`);
+console.log("4. Repeat for each Gmail / Workspace account you need.\n");
 
 const server = createServer(async (req, res) => {
   if (!req.url?.startsWith(redirect.pathname)) {
@@ -68,6 +84,7 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url, redirectUri);
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
+  const stateRaw = url.searchParams.get("state");
 
   if (error) {
     res.writeHead(400, { "Content-Type": "text/html; charset=utf-8" });
@@ -84,22 +101,37 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  let parsedLabel = label;
+  if (stateRaw) {
+    try {
+      const parsed = JSON.parse(
+        Buffer.from(stateRaw, "base64url").toString("utf8"),
+      ) as { label?: string };
+      parsedLabel = parsed.label ?? parsedLabel;
+    } catch {
+      // ignore malformed state
+    }
+  }
+
   try {
     const { tokens } = await oauth.getToken(code);
-    saveStoredToken(tokens);
-    const tokenPath = resolveTokenPath();
-
-    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    res.end(
-      "<h1>Authorization complete</h1><p>You can close this tab and return to Cursor.</p>",
+    const account = await saveAuthorizedAccount(
+      {
+        refresh_token: tokens.refresh_token ?? undefined,
+        access_token: tokens.access_token ?? undefined,
+        expiry_date: tokens.expiry_date ?? undefined,
+        token_type: tokens.token_type ?? undefined,
+        scope: tokens.scope ?? undefined,
+      },
+      { label: parsedLabel },
     );
 
-    console.log(`Saved refresh token to ${tokenPath}`);
-    if (tokens.refresh_token) {
-      console.log(
-        "\nOptional: add this to your .env for explicit configuration:\n",
-      );
-      console.log(`GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`);
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(renderAuthorizationCompleteHtml(account.email));
+
+    console.log(`Saved account ${account.email} to multi-account store`);
+    if (label) {
+      console.log(`Label: ${label}`);
     }
   } catch (authError) {
     const message =

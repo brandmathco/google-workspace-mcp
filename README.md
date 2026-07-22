@@ -20,6 +20,9 @@ See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and busi
 
 | Tool | Description |
 |------|-------------|
+| `google_list_accounts` | List authorized Google accounts and the default |
+| `google_set_default_account` | Set which account is used when `accountEmail` is omitted |
+| `google_remove_account` | Remove a stored account and its refresh token |
 | `gmail_list_messages` | Search/list Gmail (supports Gmail query syntax) |
 | `gmail_get_message` | Read a message by ID |
 | `gmail_reply` | Reply (or reply-all) in-thread |
@@ -29,6 +32,42 @@ See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and busi
 | `calendar_list_upcoming` | List upcoming events |
 | `tasks_create` | Create a Google Tasks item |
 | `tasks_list` | List open tasks |
+
+All Gmail/Calendar/Tasks tools accept optional **`accountEmail`** (e.g. `you@gmail.com`) to target a specific authorized account. Omit it to use the default.
+
+## Multi-account OAuth
+
+Authorize **many Gmail / Workspace accounts** without replacing the previous one.
+
+| Storage | When to use | Config |
+|---------|-------------|--------|
+| **File** (default) | Local dev, stdio MCP | Tokens in `~/.config/google-workspace-mcp/accounts.json` |
+| **Supabase** | Fly.io / shared remote MCP | `GOOGLE_ACCOUNTS_STORE=supabase` + `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` + `GOOGLE_TOKEN_ENCRYPTION_KEY` |
+
+1. Run authorize once per account (same link each time; pick a different Google sign-in):
+
+   ```bash
+   npm run authorize -- --hash-key=YOUR_KEY --label=my-label
+   ```
+
+   Remote (Fly):
+
+   ```
+   https://your-app.fly.dev/authorize?hashKey=YOUR_KEY&label=my-label
+   https://your-app.fly.dev/authorize?hashKey=YOUR_KEY&label=my-label&default=1
+   ```
+
+2. List accounts from Cursor: `google_list_accounts`
+
+3. Search a specific inbox:
+
+   ```json
+   { "accountEmail": "you@gmail.com", "query": "from:example.com", "maxResults": 25 }
+   ```
+
+Legacy `GOOGLE_REFRESH_TOKEN` / `token.json` is **auto-migrated** into the multi-account store on first use.
+
+Apply Supabase schema: `supabase/migrations/20260722000000_google_mcp_oauth_accounts.sql`
 
 ## Prerequisites
 
@@ -121,7 +160,9 @@ npm run authorize -- --hash-key=choose-a-long-random-string
 
 1. Open the URL printed in your terminal.
 2. Sign in and approve (see screenshots above).
-3. Refresh token saved to `~/.config/google-workspace-mcp/token.json`.
+3. Refresh tokens saved to `~/.config/google-workspace-mcp/accounts.json` (one entry per Google account).
+
+Repeat the authorize command for each Gmail account you need.
 
 ### 4. Add to Cursor
 
@@ -191,12 +232,19 @@ fly secrets set \
   GOOGLE_OAUTH_CLIENT_ID="..." \
   GOOGLE_OAUTH_CLIENT_SECRET="..." \
   GOOGLE_OAUTH_REDIRECT_URI="https://your-app.fly.dev/oauth2callback" \
-  GOOGLE_REFRESH_TOKEN="..." \
+  GOOGLE_ACCOUNTS_STORE="supabase" \
+  SUPABASE_URL="https://YOUR_PROJECT.supabase.co" \
+  SUPABASE_SERVICE_ROLE_KEY="..." \
+  GOOGLE_TOKEN_ENCRYPTION_KEY="..." \
   MCP_API_KEY="your-random-api-key" \
   AUTHORIZE_HASH_KEY="your-random-hash-key"
 ```
 
 Add `https://your-app.fly.dev/oauth2callback` as an **Authorized redirect URI** in Google Cloud Console.
+
+Apply the Supabase migration in `supabase/migrations/` before first authorize.
+
+`GOOGLE_REFRESH_TOKEN` is **optional** — legacy single-token setups are migrated automatically.
 
 ### 3. Authorize on the remote host
 
@@ -204,7 +252,11 @@ Add `https://your-app.fly.dev/oauth2callback` as an **Authorized redirect URI** 
 https://your-app.fly.dev/authorize?hashKey=YOUR_AUTHORIZE_HASH_KEY
 ```
 
-Complete Google sign-in in the browser (same consent flow as local setup).
+Complete Google sign-in in the browser (same consent flow as local setup). **Run again for each additional account** — tokens accumulate instead of replacing.
+
+```
+https://your-app.fly.dev/authorize?hashKey=YOUR_AUTHORIZE_HASH_KEY&label=my-label
+```
 
 ### 4. Connect Cursor to the remote server
 
