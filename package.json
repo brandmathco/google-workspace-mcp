@@ -1,0 +1,48 @@
+{
+  "name": "google-workspace-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for Gmail, Google Calendar, and Google Tasks",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/brandmathco/google-workspace-mcp.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "gmail",
+    "google-calendar",
+    "google-tasks",
+    "cursor",
+    "ai"
+  ],
+  "bin": {
+    "google-workspace-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:http": "node dist/http.js",
+    "dev": "tsx src/index.ts",
+    "dev:http": "tsx src/http.ts",
+    "authorize": "tsx scripts/authorize.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "google-auth-library": "^9.14.0",
+    "googleapis": "^144.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "google-workspace-local": {
+      "command": "node",
+      "args": ["/absolute/path/to/google-workspace-mcp/dist/index.js"],
+      "env": {
+        "GOOGLE_OAUTH_CLIENT_ID": "your-client-id.apps.googleusercontent.com",
+        "GOOGLE_OAUTH_CLIENT_SECRET": "your-client-secret",
+        "GOOGLE_OAUTH_REDIRECT_URI": "http://127.0.0.1:3847/oauth2callback"
+      }
+    },
+    "google-workspace-remote": {
+      "url": "https://your-app.fly.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_API_KEY"
+      }
+    }
+  }
+}
