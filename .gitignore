@@ -19,3 +19,4 @@ scripts/authorize-credentials.json
 .cursor/
 *.pem
 *.p12
+desktop/assets/AppIcon.iconset/
