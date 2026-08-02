@@ -1,7 +1,8 @@
 node_modules/
 dist/
 .env
-.env.local
+.env.*
+!.env.example
 token.json
 accounts.json
 credentials/
@@ -9,3 +10,8 @@ credentials/
 .DS_Store
 fly.toml
 scripts/authorize-targets.json
+scripts/authorize-credentials.json
+# Local Cursor / editor overrides
+.cursor/
+*.pem
+*.p12

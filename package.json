@@ -1,12 +1,16 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
-  "description": "MCP server for Gmail, Google Calendar, and Google Tasks",
+  "description": "MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/brandmathco/google-workspace-mcp.git"
+  },
+  "homepage": "https://github.com/brandmathco/google-workspace-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/brandmathco/google-workspace-mcp/issues"
   },
   "keywords": [
     "mcp",
@@ -15,20 +19,40 @@
     "google-calendar",
     "google-tasks",
     "cursor",
-    "ai"
+    "ai",
+    "multi-account"
   ],
   "bin": {
     "google-workspace-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "setup",
+    "docs",
+    "supabase/migrations",
+    ".env.example",
+    "cursor-mcp.example.json",
+    "fly.toml.example",
+    "Start Setup.command",
+    "Start Setup.bat",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "start:http": "node dist/http.js",
     "dev": "tsx src/index.ts",
     "dev:http": "tsx src/http.ts",
+    "setup": "tsx setup/wizard-server.ts",
+    "setup:wizard": "tsx setup/wizard-server.ts",
     "authorize": "tsx scripts/authorize.ts",
     "authorize:all": "tsx scripts/authorize-all.ts",
-    "typecheck": "tsc --noEmit"
+    "authorize:all:auto": "tsx scripts/authorize-all-auto.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
@@ -43,6 +67,7 @@
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^22.13.10",
+    "playwright": "^1.49.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }

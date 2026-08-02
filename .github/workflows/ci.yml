@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Guard against committed secrets
+        run: |
+          set -euo pipefail
+          if [ -f .env ]; then echo "ERROR: .env must not be committed"; exit 1; fi
+          if [ -f scripts/authorize-credentials.json ]; then
+            echo "ERROR: scripts/authorize-credentials.json must not be committed"
+            exit 1
+          fi
+          if [ -f scripts/authorize-targets.json ]; then
+            echo "ERROR: scripts/authorize-targets.json must not be committed"
+            exit 1
+          fi
+          echo "Secret path guard OK"

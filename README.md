@@ -2,9 +2,39 @@
 
 An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (Cursor, Claude Desktop, etc.) to **Gmail**, **Google Calendar**, and **Google Tasks**.
 
-Use it to let an AI agent search and reply to email, create calendar events, and manage task lists — with your own Google OAuth credentials. Nothing in this repo contains secrets; you bring your own Google Cloud project and tokens.
+Authorize **one or many** Google accounts. Tokens stay on your machine (or your own Supabase project for remote deploy). This repository never ships secrets — you bring your own Google Cloud OAuth client.
+
+**Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md)
 
 ![Inbox automation example — triage unread mail, apply labels, draft replies](docs/screenshots/05-inbox-automation-example.png)
+
+## Easy setup (no coding)
+
+Best path if you are new to Node / terminals.
+
+### macOS
+
+1. Install **Node.js 20+** from [nodejs.org](https://nodejs.org) (LTS) if you do not have it.
+2. Download or clone this repo.
+3. Double-click **`Start Setup.command`**  
+   (If macOS blocks it: Right-click → Open → Open.)
+4. Follow the browser wizard: create Google keys → connect accounts → write Cursor config.
+
+### Windows
+
+1. Install **Node.js 20+** from [nodejs.org](https://nodejs.org) (LTS) if you do not have it.
+2. Download or clone this repo.
+3. Double-click **`Start Setup.bat`**.
+4. Follow the same wizard steps in your browser.
+
+Or from a terminal in this folder:
+
+```bash
+npm install
+npm run setup
+```
+
+The wizard teaches you how to create a Google Cloud **Desktop OAuth client**, saves `.env` only on your computer, connects multiple Gmail accounts, and can write `~/.cursor/mcp.json` for you.
 
 ## What you can automate
 
@@ -102,7 +132,7 @@ Approve access for the Google account you want the AI to use (work or dedicated 
 
 ### Step 3 — Authorization complete
 
-After you approve, the local callback saves a refresh token to `~/.config/google-workspace-mcp/token.json`:
+After you approve, the local callback saves the account into `~/.config/google-workspace-mcp/accounts.json` (multi-account store):
 
 ![Authorization complete — connected to Google Workspace MCP](docs/screenshots/03-authorization-complete.png)
 
@@ -292,19 +322,40 @@ Skip OAuth authorize in this mode. Configure delegation in Google Admin and gran
 
 | Command | Description |
 |---------|-------------|
+| `npm run setup` | Open the guided Setup Wizard (beginner-friendly) |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm run dev` | Run stdio MCP locally (tsx) |
 | `npm run dev:http` | Run HTTP server locally |
-| `npm run authorize -- --hash-key=KEY` | One-time OAuth setup |
+| `npm run authorize -- --hash-key=KEY` | Authorize one Google account (browser) |
+| `npm run authorize:all` | Authorize many accounts from a local email list |
+| `npm run authorize:all:auto` | Optional Playwright helper (local passwords file; advanced) |
 | `npm run start` | Run compiled stdio server |
 | `npm run start:http` | Run compiled HTTP server |
 
+### Batch authorize (advanced)
+
+```bash
+cp scripts/authorize-targets.example.json scripts/authorize-targets.json
+# edit the JSON array of emails (gitignored)
+npm run authorize:all
+```
+
+Password-based automation (`authorize:all:auto`) is optional and **not** required for normal use. Copy `scripts/authorize-credentials.example.json` → `authorize-credentials.json` (gitignored). Prefer the Setup Wizard or interactive authorize so passwords never sit on disk.
+
+## Versioning & releases
+
+- SemVer in `package.json` (`1.2.0`, …)
+- Human-readable notes in [CHANGELOG.md](./CHANGELOG.md)
+- GitHub Releases: [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
+
 ## Security notes
 
-- **Never commit** `.env`, `token.json`, or OAuth tokens.
+See **[SECURITY.md](./SECURITY.md)** for the full “never commit” list.
+
+- **Never commit** `.env`, `accounts.json`, `token.json`, or `scripts/authorize-credentials.json`.
 - `MCP_API_KEY` protects the remote `/mcp` endpoint; generate a strong random value.
 - `AUTHORIZE_HASH_KEY` protects `/authorize`; required for both local `npm run authorize` and remote OAuth.
-- OAuth tokens are stored locally at `~/.config/google-workspace-mcp/token.json` by default.
+- OAuth refresh tokens are stored locally at `~/.config/google-workspace-mcp/accounts.json` by default (or encrypted in your Supabase project when configured).
 - This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`). Use a dedicated Google account or review scopes before connecting production mail.
 - **Review AI-drafted replies** before sending to clients.
 

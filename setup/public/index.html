@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Google Workspace MCP — Setup Wizard</title>
+    <link rel="stylesheet" href="/wizard.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">Google Workspace MCP</p>
+        <h1>Setup Wizard</h1>
+        <p class="lede">
+          Connect Gmail, Calendar, and Tasks to Cursor in a few guided steps.
+          No coding required — we’ll tell you exactly what to copy from Google.
+        </p>
+        <p class="meta" id="versionLine">Checking your computer…</p>
+      </header>
+
+      <nav class="steps" aria-label="Setup steps">
+        <button type="button" class="step active" data-step="1">1. Install</button>
+        <button type="button" class="step" data-step="2">2. Google keys</button>
+        <button type="button" class="step" data-step="3">3. Sign in</button>
+        <button type="button" class="step" data-step="4">4. Cursor</button>
+      </nav>
+
+      <main>
+        <section class="panel active" id="panel-1">
+          <h2>Install on this computer</h2>
+          <p>
+            We need <strong>Node.js 20+</strong> (free). If the check below fails,
+            install it from
+            <a href="https://nodejs.org" target="_blank" rel="noopener">nodejs.org</a>
+            (click the big green LTS button), then re-open this wizard.
+          </p>
+          <ul class="checklist" id="installChecklist"></ul>
+          <div class="actions">
+            <button type="button" class="btn primary" id="btnInstall">
+              Install dependencies &amp; build
+            </button>
+            <button type="button" class="btn" id="btnToStep2" disabled>Continue →</button>
+          </div>
+          <pre class="log hidden" id="installLog"></pre>
+        </section>
+
+        <section class="panel" id="panel-2">
+          <h2>Create free Google Cloud keys</h2>
+          <p>
+            Google requires your own “OAuth client” so only <em>you</em> control access.
+            This takes about 5–10 minutes the first time.
+          </p>
+
+          <ol class="guide">
+            <li>
+              Open
+              <a
+                href="https://console.cloud.google.com/projectcreate"
+                target="_blank"
+                rel="noopener"
+                >Create a Google Cloud project</a
+              >
+              → name it anything (e.g. <code>workspace-mcp</code>) → Create.
+            </li>
+            <li>
+              Enable these APIs (search each name → Enable):
+              <ul>
+                <li>
+                  <a
+                    href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+                    target="_blank"
+                    rel="noopener"
+                    >Gmail API</a
+                  >
+                </li>
+                <li>
+                  <a
+                    href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
+                    target="_blank"
+                    rel="noopener"
+                    >Google Calendar API</a
+                  >
+                </li>
+                <li>
+                  <a
+                    href="https://console.cloud.google.com/apis/library/tasks.googleapis.com"
+                    target="_blank"
+                    rel="noopener"
+                    >Google Tasks API</a
+                  >
+                </li>
+              </ul>
+            </li>
+            <li>
+              Open
+              <a
+                href="https://console.cloud.google.com/apis/credentials/consent"
+                target="_blank"
+                rel="noopener"
+                >OAuth consent screen</a
+              >
+              → choose <strong>External</strong> (personal Gmail) or Internal (Workspace only)
+              → fill App name + your email → Save. Add yourself as a
+              <strong>Test user</strong> if the app is in Testing mode.
+            </li>
+            <li>
+              Open
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener"
+                >Credentials</a
+              >
+              → <strong>Create credentials</strong> → <strong>OAuth client ID</strong> →
+              Application type: <strong>Desktop app</strong> → Create.
+            </li>
+            <li>
+              Copy the <strong>Client ID</strong> and <strong>Client secret</strong> into the
+              form below. Also add this Authorized redirect URI if Google asks for one:<br />
+              <code id="redirectUriCode">http://127.0.0.1:3847/oauth2callback</code>
+              <button type="button" class="btn tiny" id="btnCopyRedirect">Copy</button>
+            </li>
+          </ol>
+
+          <form id="envForm" class="form">
+            <label>
+              Client ID
+              <input
+                name="clientId"
+                id="clientId"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="123456789-abcdef.apps.googleusercontent.com"
+                required
+              />
+            </label>
+            <label>
+              Client Secret
+              <input
+                name="clientSecret"
+                id="clientSecret"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="GOCSPX-…"
+                required
+              />
+            </label>
+            <p class="hint" id="envHint"></p>
+            <div class="actions">
+              <button type="submit" class="btn primary">Save keys securely</button>
+              <button type="button" class="btn" id="btnToStep3" disabled>Continue →</button>
+            </div>
+          </form>
+          <p class="fineprint">
+            Keys are saved only on this computer in a local <code>.env</code> file
+            (never uploaded by this wizard). Do not share screenshots of the secret.
+          </p>
+        </section>
+
+        <section class="panel" id="panel-3">
+          <h2>Connect Google account(s)</h2>
+          <p>
+            Click below to open Google sign-in. Approve access for Gmail, Calendar, and Tasks.
+            Repeat for every inbox you want the AI to use — accounts stack; nothing is overwritten.
+          </p>
+          <label class="inline">
+            Optional label
+            <input id="accountLabel" placeholder="work, personal, …" />
+          </label>
+          <div class="actions">
+            <button type="button" class="btn primary" id="btnAuthorize">
+              Connect a Google account
+            </button>
+            <button type="button" class="btn" id="btnRefreshAccounts">Refresh list</button>
+            <button type="button" class="btn" id="btnCancelAuth">Cancel waiting</button>
+            <button type="button" class="btn" id="btnToStep4">Continue →</button>
+          </div>
+          <p class="hint" id="authHint"></p>
+          <ul class="accounts" id="accountsList"></ul>
+        </section>
+
+        <section class="panel" id="panel-4">
+          <h2>Add to Cursor</h2>
+          <p>
+            Cursor needs a short config that points at this app. Easiest: let the wizard write
+            <code>~/.cursor/mcp.json</code> for you, then restart Cursor.
+          </p>
+          <div class="actions">
+            <button type="button" class="btn primary" id="btnWriteCursor">
+              Write Cursor MCP config
+            </button>
+            <button type="button" class="btn" id="btnCopySnippet">Copy JSON</button>
+          </div>
+          <p class="hint" id="cursorHint"></p>
+          <pre class="code" id="cursorSnippet">Loading…</pre>
+          <ol class="guide">
+            <li>Quit and reopen Cursor (or reload MCP servers).</li>
+            <li>
+              Open <strong>Cursor Settings → MCP</strong> and confirm
+              <code>google-workspace</code> shows tools.
+            </li>
+            <li>
+              Try: <em>“List my unread Gmail from the last 24 hours”</em> or
+              <em>“List authorized Google accounts”</em>.
+            </li>
+          </ol>
+          <p class="fineprint">
+            Tokens stay in <code>~/.config/google-workspace-mcp/accounts.json</code> on this
+            machine. Never commit <code>.env</code>, password files, or that accounts file to
+            GitHub.
+          </p>
+        </section>
+      </main>
+
+      <footer>
+        <a href="https://github.com/brandmathco/google-workspace-mcp" target="_blank" rel="noopener"
+          >GitHub</a
+        >
+        ·
+        <a
+          href="https://github.com/brandmathco/google-workspace-mcp/blob/main/docs/USE_CASES.md"
+          target="_blank"
+          rel="noopener"
+          >Use cases</a
+        >
+        · MIT License
+      </footer>
+    </div>
+    <script src="/wizard.js"></script>
+  </body>
+</html>

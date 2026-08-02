@@ -1,0 +1,46 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.0] — 2026-08-01
+
+### Added
+
+- **Guided Setup Wizard** for non-developers (`Start Setup.command` on macOS, `Start Setup.bat` on Windows)
+  - Walks through Google Cloud OAuth client creation
+  - Saves `.env` locally (never committed)
+  - Connects one or many Google accounts
+  - Writes Cursor `mcp.json` for you
+- Multi-account batch helpers:
+  - `npm run authorize:all` — interactive browser authorize from a local email list
+  - `npm run authorize:all:auto` — optional Playwright helper (passwords stay in a **gitignored** local file)
+- Example credential template: `scripts/authorize-credentials.example.json`
+- `SECURITY.md` — what must never be published
+
+### Changed
+
+- README quick path highlights the Setup Wizard and multi-account storage
+- Token storage docs clarify `~/.config/google-workspace-mcp/accounts.json`
+
+## [1.1.0] — 2026-07-21
+
+### Added
+
+- Multi-account OAuth with file and Supabase token storage
+- MCP tools: `google_list_accounts`, `google_set_default_account`, `google_remove_account`
+- Optional `accountEmail` on Gmail / Calendar / Tasks tools
+- Legacy `GOOGLE_REFRESH_TOKEN` / `token.json` auto-migration
+
+## [1.0.0] — 2026-07-05
+
+### Added
+
+- Initial public release: Gmail, Calendar, and Tasks MCP tools
+- Local authorize script and optional Fly.io HTTP MCP endpoint
+
+[1.2.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/brandmathco/google-workspace-mcp/releases/tag/v1.0.0

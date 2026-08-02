@@ -1,0 +1,27 @@
+# Security
+
+## Never commit these (local only)
+
+| Path / secret | Why |
+|---------------|-----|
+| `.env` / `.env.local` | OAuth client secret, hash keys, API keys |
+| `~/.config/google-workspace-mcp/accounts.json` | Refresh tokens for every connected Google account |
+| `~/.config/google-workspace-mcp/token.json` | Legacy single-account token |
+| `scripts/authorize-targets.json` | Your real account email list |
+| `scripts/authorize-credentials.json` | **Passwords** for optional auto-authorize — treat as highly sensitive |
+| `fly.toml` with real app names + any committed secrets | Prefer `fly secrets set` |
+| Supabase **service role** key | Full database access |
+
+Templates that **are** safe to publish: `.env.example`, `scripts/authorize-targets.example.json`, `scripts/authorize-credentials.example.json`, `fly.toml.example`, `cursor-mcp.example.json`.
+
+## Safe public publish checklist
+
+1. Confirm `.gitignore` covers the paths above.
+2. Run `git status` and ensure no `.env` or credential JSON is staged.
+3. Prefer the Setup Wizard or `npm run authorize` (browser sign-in) over storing passwords.
+4. For remote MCP, set secrets with `fly secrets set` — never bake them into the image or repo.
+5. Rotate any key that was ever pasted into chat, a screenshot, or a public gist.
+
+## Reporting issues
+
+Open a private security advisory or email the maintainers via the GitHub org if you believe a secret was exposed in this repository.

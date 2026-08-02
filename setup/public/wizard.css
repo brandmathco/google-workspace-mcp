@@ -1,0 +1,277 @@
+:root {
+  --bg0: #0f1419;
+  --bg1: #1a222c;
+  --bg2: #243040;
+  --text: #eef3f8;
+  --muted: #9aabbb;
+  --accent: #3d9cf0;
+  --accent-2: #2f7ec4;
+  --ok: #3ecf8e;
+  --warn: #f0b429;
+  --danger: #f07178;
+  --border: rgba(255, 255, 255, 0.08);
+  --radius: 14px;
+  --font: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font);
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(61, 156, 240, 0.22), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(62, 207, 142, 0.12), transparent 50%),
+    linear-gradient(180deg, #0b1016, var(--bg0) 40%, #121820);
+}
+
+.shell {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.hero h1 {
+  margin: 0.15em 0 0.35em;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  color: var(--accent);
+}
+
+.lede {
+  margin: 0;
+  color: #c2ccd6;
+  line-height: 1.55;
+  max-width: 46rem;
+}
+
+.meta {
+  margin: 14px 0 0;
+  color: #8b97a5;
+  font-size: 0.92rem;
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 28px 0 18px;
+}
+
+.step {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  color: #b7c2ce;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.step.active {
+  background: rgba(61, 156, 240, 0.18);
+  border-color: rgba(61, 156, 240, 0.45);
+  color: var(--text);
+}
+
+.panel {
+  display: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px 22px 26px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.panel.active {
+  display: block;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+}
+
+.panel p,
+.guide,
+.fineprint,
+.hint {
+  color: #c2ccd6;
+  line-height: 1.55;
+}
+
+.guide {
+  padding-left: 1.2rem;
+}
+
+.guide li {
+  margin: 0.55rem 0;
+}
+
+.guide code,
+.fineprint code,
+.panel code {
+  font-family: var(--mono);
+  font-size: 0.86em;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+}
+
+.checklist,
+.accounts {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.checklist li,
+.accounts li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+
+.dot {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-top: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+.dot.warn {
+  background: var(--warn);
+}
+.dot.bad {
+  background: var(--danger);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.btn.tiny {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  margin-left: 6px;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.form label,
+.inline {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+  color: #d5dde6;
+}
+
+.form input,
+.inline input {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.log,
+.code {
+  margin-top: 14px;
+  max-height: 240px;
+  overflow: auto;
+  background: #0a0e13;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  color: #d7e0ea;
+}
+
+.log.hidden {
+  display: none;
+}
+
+.fineprint {
+  margin-top: 18px;
+  font-size: 0.88rem;
+  color: #8b97a5;
+}
+
+footer {
+  margin-top: 22px;
+  color: #7f8b99;
+  font-size: 0.88rem;
+}
+
+footer a {
+  color: #b7cfe8;
+}
+
+a {
+  color: #7ec2ff;
+}
+
+@media (max-width: 600px) {
+  .shell {
+    padding: 20px 14px 40px;
+  }
+  .panel {
+    padding: 16px;
+  }
+}
