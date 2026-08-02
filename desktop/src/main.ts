@@ -4,6 +4,7 @@ import {
   Menu,
   shell,
   dialog,
+  nativeImage,
 } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -11,6 +12,10 @@ import { join } from "node:path";
 
 const WIZARD_PORT = 3951;
 const WIZARD_URL = `http://127.0.0.1:${WIZARD_PORT}`;
+const BMG_SITE = "https://www.brandmatchgrowth.com/";
+const GITHUB_RELEASES =
+  "https://github.com/brandmathco/google-workspace-mcp/releases";
+const GITHUB_REPO = "https://github.com/brandmathco/google-workspace-mcp";
 
 let mainWindow: BrowserWindow | null = null;
 let wizardProcess: ChildProcess | null = null;
@@ -24,9 +29,6 @@ function resourcesRoot(): string {
 }
 
 function mcpRoot(): string {
-  if (app.isPackaged) {
-    return join(resourcesRoot(), "mcp");
-  }
   return join(resourcesRoot(), "mcp");
 }
 
@@ -43,6 +45,15 @@ function bundledNodePath(): string {
 
 function wizardEntry(): string {
   return join(mcpRoot(), "setup", "wizard-server.js");
+}
+
+function appIconPath(): string | undefined {
+  const candidates = [
+    join(__dirname, "..", "assets", "icon.png"),
+    join(process.resourcesPath, "icon.png"),
+    join(__dirname, "..", "assets", "AppIcon.icns"),
+  ];
+  return candidates.find((path) => existsSync(path));
 }
 
 async function waitForWizard(url: string, attempts = 40): Promise<boolean> {
@@ -110,17 +121,20 @@ function startWizardProcess(): void {
 }
 
 function createWindow(): void {
+  const iconPath = appIconPath();
   mainWindow = new BrowserWindow({
     width: 920,
-    height: 780,
+    height: 820,
     minWidth: 720,
     minHeight: 560,
-    title: "Google Workspace MCP Setup",
+    title: "Google Workspace MCP Setup — BrandMatchGrowth",
+    icon: iconPath ? nativeImage.createFromPath(iconPath) : undefined,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
     },
     show: false,
+    backgroundColor: "#0a0614",
   });
 
   mainWindow.once("ready-to-show", () => {
@@ -154,6 +168,13 @@ function buildMenu(): void {
           submenu: [
             { role: "about" as const },
             { type: "separator" as const },
+            {
+              label: "BrandMatchGrowth website",
+              click: () => {
+                void shell.openExternal(BMG_SITE);
+              },
+            },
+            { type: "separator" as const },
             { role: "quit" as const },
           ],
         }]
@@ -162,13 +183,24 @@ function buildMenu(): void {
       label: "Help",
       submenu: [
         {
-          label: "GitHub Releases",
+          label: "BrandMatchGrowth website",
           click: () => {
-            void shell.openExternal(
-              "https://github.com/brandmathco/google-workspace-mcp/releases",
-            );
+            void shell.openExternal(BMG_SITE);
           },
         },
+        {
+          label: "GitHub repository",
+          click: () => {
+            void shell.openExternal(GITHUB_REPO);
+          },
+        },
+        {
+          label: "GitHub Releases",
+          click: () => {
+            void shell.openExternal(GITHUB_RELEASES);
+          },
+        },
+        { type: "separator" },
         {
           label: "Open setup page in browser",
           click: () => {
@@ -182,11 +214,24 @@ function buildMenu(): void {
 }
 
 app.whenReady().then(async () => {
+  const iconPath = appIconPath();
+  app.setAboutPanelOptions({
+    applicationName: "Google Workspace MCP Setup",
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+    copyright: "© 2026 BrandMatchGrowth",
+    credits: "Built by BrandMatchGrowth — performance marketing & product infrastructure.",
+    website: BMG_SITE,
+    iconPath,
+  });
+
+  if (process.platform === "darwin" && iconPath && app.dock) {
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+
   buildMenu();
   startWizardProcess();
 
-  // Wizard CLI auto-opens a browser; give Electron the window instead.
-  // Patch: restart note — we pass no flag to skip browser. Update wizard to respect SETUP_WIZARD_NO_BROWSER.
   const ready = await waitForWizard(WIZARD_URL);
   if (!ready) {
     dialog.showErrorBox(

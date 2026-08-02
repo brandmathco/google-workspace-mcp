@@ -1,17 +1,20 @@
 :root {
-  --bg0: #0f1419;
-  --bg1: #1a222c;
-  --bg2: #243040;
-  --text: #eef3f8;
-  --muted: #9aabbb;
-  --accent: #3d9cf0;
-  --accent-2: #2f7ec4;
+  --bg0: #0a0614;
+  --bg1: #140a28;
+  --bg2: #1f1040;
+  --text: #f4f5f8;
+  --muted: #b8a8d4;
+  --accent: #a371ff;
+  --accent-2: #7b2cf0;
+  --accent-deep: #4b0fb8;
+  --gold: #f5c97a;
   --ok: #3ecf8e;
   --warn: #f0b429;
   --danger: #f07178;
-  --border: rgba(255, 255, 255, 0.08);
+  --border: rgba(178, 107, 255, 0.18);
   --radius: 14px;
-  --font: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font: Futura, "Century Gothic", "Franklin Gothic Medium", "Trebuchet MS",
+    "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -25,15 +28,49 @@ body {
   font-family: var(--font);
   color: var(--text);
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(61, 156, 240, 0.22), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(62, 207, 142, 0.12), transparent 50%),
-    linear-gradient(180deg, #0b1016, var(--bg0) 40%, #121820);
+    radial-gradient(1100px 560px at 8% -8%, rgba(123, 44, 240, 0.35), transparent 55%),
+    radial-gradient(900px 480px at 100% 0%, rgba(163, 113, 255, 0.18), transparent 50%),
+    radial-gradient(700px 400px at 50% 100%, rgba(245, 201, 122, 0.08), transparent 55%),
+    linear-gradient(180deg, #07040f, var(--bg0) 40%, #10081c);
 }
 
 .shell {
   max-width: 860px;
   margin: 0 auto;
-  padding: 32px 20px 64px;
+  padding: 28px 20px 64px;
+}
+
+.brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.brand-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.brand-logo {
+  height: 42px;
+  width: auto;
+  max-width: min(280px, 70vw);
+  display: block;
+}
+
+.brand-site {
+  color: var(--gold);
+  font-size: 0.88rem;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(245, 201, 122, 0.35);
+}
+
+.brand-site:hover {
+  color: #ffe2a8;
 }
 
 .hero h1 {
@@ -45,21 +82,22 @@ body {
 .eyebrow {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
   color: var(--accent);
+  font-weight: 600;
 }
 
 .lede {
   margin: 0;
-  color: #c2ccd6;
+  color: #d8ccec;
   line-height: 1.55;
   max-width: 46rem;
 }
 
 .meta {
   margin: 14px 0 0;
-  color: #8b97a5;
+  color: var(--muted);
   font-size: 0.92rem;
 }
 
@@ -73,7 +111,7 @@ body {
 .step {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.03);
-  color: #b7c2ce;
+  color: #cbbbe6;
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
@@ -81,19 +119,19 @@ body {
 }
 
 .step.active {
-  background: rgba(61, 156, 240, 0.18);
-  border-color: rgba(61, 156, 240, 0.45);
+  background: linear-gradient(180deg, rgba(163, 113, 255, 0.28), rgba(75, 15, 184, 0.22));
+  border-color: rgba(163, 113, 255, 0.55);
   color: var(--text);
 }
 
 .panel {
   display: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+  background: linear-gradient(180deg, rgba(163, 113, 255, 0.06), transparent),
     var(--bg1);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px 22px 26px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
 }
 
 .panel.active {
@@ -109,7 +147,7 @@ body {
 .guide,
 .fineprint,
 .hint {
-  color: #c2ccd6;
+  color: #d8ccec;
   line-height: 1.55;
 }
 
@@ -145,7 +183,7 @@ body {
   align-items: flex-start;
   padding: 10px 12px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.28);
   border: 1px solid var(--border);
   margin-bottom: 8px;
 }
@@ -195,6 +233,7 @@ body {
   background: linear-gradient(180deg, var(--accent), var(--accent-2));
   border-color: transparent;
   font-weight: 600;
+  color: #fff;
 }
 
 .btn.tiny {
@@ -214,7 +253,7 @@ body {
   display: grid;
   gap: 6px;
   font-size: 0.92rem;
-  color: #d5dde6;
+  color: #e8dff8;
 }
 
 .form input,
@@ -222,7 +261,7 @@ body {
   width: 100%;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.32);
   color: var(--text);
   padding: 11px 12px;
   font: inherit;
@@ -233,14 +272,14 @@ body {
   margin-top: 14px;
   max-height: 240px;
   overflow: auto;
-  background: #0a0e13;
+  background: #07040f;
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
   font-family: var(--mono);
   font-size: 0.8rem;
   white-space: pre-wrap;
-  color: #d7e0ea;
+  color: #e8dff8;
 }
 
 .log.hidden {
@@ -250,21 +289,38 @@ body {
 .fineprint {
   margin-top: 18px;
   font-size: 0.88rem;
-  color: #8b97a5;
+  color: var(--muted);
 }
 
 footer {
   margin-top: 22px;
-  color: #7f8b99;
+  color: var(--muted);
   font-size: 0.88rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 footer a {
-  color: #b7cfe8;
+  color: #d4b8ff;
+}
+
+footer .footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #e8dff8;
+  text-decoration: none;
+}
+
+footer .footer-brand img {
+  height: 22px;
+  width: auto;
 }
 
 a {
-  color: #7ec2ff;
+  color: #c9a6ff;
 }
 
 @media (max-width: 600px) {
@@ -273,5 +329,9 @@ a {
   }
   .panel {
     padding: 16px;
+  }
+  .brand-bar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

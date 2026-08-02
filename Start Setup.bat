@@ -3,8 +3,9 @@ setlocal
 cd /d "%~dp0"
 
 echo.
-echo Google Workspace MCP - Setup Wizard
-echo ====================================
+echo BrandMatchGrowth - Google Workspace MCP Setup Wizard
+echo ====================================================
+echo https://www.brandmatchgrowth.com/
 echo.
 
 where node >nul 2>nul

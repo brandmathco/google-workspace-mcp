@@ -1,0 +1,68 @@
+<svg width="1040" height="200" viewBox="0 0 1040 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="bmg-logo-title">
+  <title id="bmg-logo-title">BrandMatchGrowth</title>
+  <defs>
+    <style>
+      .word {
+        font-family: Futura, 'Century Gothic', 'Franklin Gothic Medium', 'Trebuchet MS', 'Arial Narrow', sans-serif;
+        font-weight: 700;
+        font-size: 62px;
+        letter-spacing: -0.5px;
+      }
+      .word-growth {
+        font-family: Futura, 'Century Gothic', 'Franklin Gothic Medium', 'Trebuchet MS', 'Arial Narrow', sans-serif;
+        font-weight: 700;
+        font-size: 62px;
+        letter-spacing: -0.5px;
+      }
+      .tag {
+        font-family: Futura, 'Century Gothic', 'Franklin Gothic Medium', 'Trebuchet MS', 'Arial Narrow', sans-serif;
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 5.2px;
+      }
+    </style>
+  </defs>
+
+  <!-- ── Mid-century icon: flat ascending match bars + boomerang base (BMG purple) ── -->
+  <g transform="translate(12 18)">
+    <!-- Atomic starburst -->
+    <g opacity="0.28" transform="translate(128 8)">
+      <path d="M 0,-18 L 4,-6 L 16,-6 L 6,2 L 10,14 L 0,6 L -10,14 L -6,2 L -16,-6 L -4,-6 Z" fill="#F5C97A"/>
+    </g>
+
+    <!-- Boomerang ground line -->
+    <path d="M 18,148 Q 92,128 166,148" stroke="#7B2CF0" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+    <!-- Match 1 — deep violet -->
+    <rect x="30" y="98" width="10" height="50" rx="5" fill="#4B0FB8"/>
+    <circle cx="35" cy="92" r="9" fill="#4B0FB8"/>
+    <circle cx="35" cy="90" r="4.5" fill="#F4F5F8" opacity="0.55"/>
+
+    <!-- Match 2 — royal purple -->
+    <rect x="58" y="76" width="10" height="72" rx="5" fill="#6B21F0"/>
+    <circle cx="63" cy="70" r="9" fill="#6B21F0"/>
+    <circle cx="63" cy="68" r="4.5" fill="#F4F5F8" opacity="0.55"/>
+
+    <!-- Match 3 — brand accent (focal) -->
+    <rect x="86" y="52" width="11" height="96" rx="5.5" fill="#8B7DFF"/>
+    <circle cx="91.5" cy="46" r="10" fill="#8B7DFF"/>
+    <circle cx="91.5" cy="44" r="5" fill="#F4F5F8" opacity="0.6"/>
+
+    <!-- Match 4 — soft lilac highlight -->
+    <rect x="116" y="30" width="10" height="118" rx="5" fill="#B26BFF"/>
+    <circle cx="121" cy="24" r="9" fill="#B26BFF"/>
+    <circle cx="121" cy="22" r="4" fill="#F5C97A"/>
+
+    <!-- Diagonal accent -->
+    <path d="M 20,148 L 150,22" stroke="#F5C97A" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  </g>
+
+  <!-- ── Wordmark ── -->
+  <text x="210" y="108" class="word" fill="#F4F5F8">BrandMatch<tspan class="word-growth" fill="#A371FF">Growth</tspan></text>
+
+  <!-- Mid-century rule -->
+  <line x1="212" y1="128" x2="318" y2="128" stroke="#F5C97A" stroke-width="2" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Tagline -->
+  <text x="212" y="154" class="tag" fill="#9A9FB2">PERFORMANCE MARKETING  •  PRODUCT INFRASTRUCTURE</text>
+</svg>

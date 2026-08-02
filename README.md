@@ -1,10 +1,21 @@
 # Google Workspace MCP
 
+<p align="center">
+  <a href="https://www.brandmatchgrowth.com/">
+    <img src="./assets/brandmatchgrowth-logo.svg" alt="BrandMatchGrowth" width="420" />
+  </a>
+</p>
+
+<p align="center">
+  <strong>By <a href="https://www.brandmatchgrowth.com/">BrandMatchGrowth</a></strong>
+  · performance marketing &amp; product infrastructure
+</p>
+
 An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (Cursor, Claude Desktop, etc.) to **Gmail**, **Google Calendar**, and **Google Tasks**.
 
 Authorize **one or many** Google accounts. Tokens stay on your machine (or your own Supabase project for remote deploy). This repository never ships secrets — you bring your own Google Cloud OAuth client.
 
-**Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md)
+**Website:** [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) · **Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md)
 
 ![Inbox automation example — triage unread mail, apply labels, draft replies](docs/screenshots/05-inbox-automation-example.png)
 
@@ -349,7 +360,7 @@ Password-based automation (`authorize:all:auto`) is optional and **not** require
 
 ## Versioning & releases
 
-- SemVer in `package.json` (`1.3.0`, …)
+- SemVer in `package.json` (`1.4.0`, …)
 - Human-readable notes in [CHANGELOG.md](./CHANGELOG.md)
 - GitHub Releases (includes `.dmg` / Windows installers): [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
 
@@ -370,6 +381,13 @@ See **[SECURITY.md](./SECURITY.md)** for the full “never commit” list.
 - OAuth refresh tokens are stored locally at `~/.config/google-workspace-mcp/accounts.json` by default (or encrypted in your Supabase project when configured).
 - This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`). Use a dedicated Google account or review scopes before connecting production mail.
 - **Review AI-drafted replies** before sending to clients.
+
+## About BrandMatchGrowth
+
+Built and maintained by **[BrandMatchGrowth](https://www.brandmatchgrowth.com/)** — we help teams ship growth systems, AI product tooling, and secure app infrastructure.
+
+- Website: https://www.brandmatchgrowth.com/
+- Book a call / work with us: https://www.brandmatchgrowth.com/book-a-call
 
 ## License
 

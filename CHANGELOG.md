@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] — 2026-08-01
+
+### Added
+
+- **BrandMatchGrowth** branding across README, Setup Wizard, OAuth success page, and desktop installers
+- App icon (BrandMatchGrowth mark) for macOS `.dmg` / Windows NSIS
+- Website links to [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) in the app menu, wizard, and repo docs
+
+### Changed
+
+- Purple/gold BrandMatchGrowth theme in the Setup Wizard UI
+- Package homepage points to BrandMatchGrowth
+
 ## [1.3.0] — 2026-08-01
 
 ### Added
@@ -57,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial public release: Gmail, Calendar, and Tasks MCP tools
 - Local authorize script and optional Fly.io HTTP MCP endpoint
 
+[1.4.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.0.0...v1.1.0

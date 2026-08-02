@@ -4,8 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo ""
-echo "Google Workspace MCP — Setup Wizard"
-echo "===================================="
+echo "BrandMatchGrowth · Google Workspace MCP — Setup Wizard"
+echo "======================================================"
+echo "https://www.brandmatchgrowth.com/"
 echo ""
 
 if ! command -v node >/dev/null 2>&1; then

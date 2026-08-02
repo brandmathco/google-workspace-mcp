@@ -1,14 +1,15 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "type": "module",
-  "description": "MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
+  "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
   "license": "MIT",
+  "author": "BrandMatchGrowth <support@brandmatchco.com>",
   "repository": {
     "type": "git",
     "url": "https://github.com/brandmathco/google-workspace-mcp.git"
   },
-  "homepage": "https://github.com/brandmathco/google-workspace-mcp#readme",
+  "homepage": "https://www.brandmatchgrowth.com/",
   "bugs": {
     "url": "https://github.com/brandmathco/google-workspace-mcp/issues"
   },
@@ -20,7 +21,8 @@
     "google-tasks",
     "cursor",
     "ai",
-    "multi-account"
+    "multi-account",
+    "brandmatchgrowth"
   ],
   "bin": {
     "google-workspace-mcp": "./dist/index.js"

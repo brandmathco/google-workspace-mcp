@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none" role="img" aria-labelledby="bmg-fav-title">
+  <title id="bmg-fav-title">BrandMatchGrowth</title>
+
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#1A0A33"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="11.5" fill="none" stroke="#B26BFF" stroke-opacity="0.35" stroke-width="1"/>
+
+  <path d="M 12,50 Q 32,44 52,50" stroke="#7B2CF0" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+
+  <rect x="14" y="34" width="4" height="16" rx="2" fill="#4B0FB8"/>
+  <circle cx="16" cy="32" r="3.5" fill="#4B0FB8"/>
+
+  <rect x="22" y="26" width="4" height="24" rx="2" fill="#6B21F0"/>
+  <circle cx="24" cy="24" r="3.5" fill="#6B21F0"/>
+
+  <rect x="30" y="18" width="4.5" height="32" rx="2.25" fill="#8B7DFF"/>
+  <circle cx="32.25" cy="16" r="4" fill="#8B7DFF"/>
+
+  <rect x="39" y="10" width="4" height="40" rx="2" fill="#B26BFF"/>
+  <circle cx="41" cy="8" r="3.5" fill="#B26BFF"/>
+  <circle cx="41" cy="7" r="1.6" fill="#F5C97A"/>
+
+  <path d="M 50,12 L 51,15 L 54,15 L 51.5,17 L 52.5,20 L 50,18 L 47.5,20 L 48.5,17 L 46,15 L 49,15 Z" fill="#F5C97A" opacity="0.7"/>
+</svg>

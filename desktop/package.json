@@ -1,9 +1,10 @@
 {
   "name": "google-workspace-mcp-setup",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
-  "author": "BrandMatchCo <support@brandmatchco.com>",
-  "description": "Installer app for Google Workspace MCP — guided setup for Cursor (no npm required).",
+  "author": "BrandMatchGrowth <support@brandmatchco.com>",
+  "homepage": "https://www.brandmatchgrowth.com/",
+  "description": "BrandMatchGrowth installer for Google Workspace MCP — guided setup for Cursor (no npm required).",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,9 +14,9 @@
     "dist:all": "npm run build && electron-builder --mac dmg --win nsis --x64 --publish never"
   },
   "build": {
-    "appId": "com.brandmatchco.google-workspace-mcp-setup",
+    "appId": "com.brandmatchgrowth.google-workspace-mcp-setup",
     "productName": "Google Workspace MCP Setup",
-    "copyright": "Copyright © 2026 BrandMatchCo",
+    "copyright": "Copyright © 2026 BrandMatchGrowth",
     "asar": true,
     "directories": {
       "output": "../dist-installers",
@@ -23,6 +24,7 @@
     },
     "files": [
       "dist/**/*",
+      "assets/icon.png",
       "package.json"
     ],
     "extraResources": [
@@ -43,6 +45,7 @@
     ],
     "mac": {
       "category": "public.app-category.developer-tools",
+      "icon": "AppIcon.icns",
       "target": [
         {
           "target": "dmg",
@@ -59,6 +62,7 @@
     },
     "dmg": {
       "title": "Google Workspace MCP Setup ${version}",
+      "icon": "AppIcon.icns",
       "iconSize": 110,
       "contents": [
         { "x": 140, "y": 200, "type": "file" },
@@ -66,6 +70,7 @@
       ]
     },
     "win": {
+      "icon": "icon.png",
       "target": [
         {
           "target": "nsis",
@@ -84,7 +89,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Google Workspace MCP Setup",
-      "uninstallDisplayName": "Google Workspace MCP Setup"
+      "uninstallDisplayName": "Google Workspace MCP Setup by BrandMatchGrowth"
     }
   },
   "devDependencies": {
