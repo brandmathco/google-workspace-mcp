@@ -114,6 +114,25 @@ async function main() {
   if (existsSync(join(ROOT, "package-lock.json"))) {
     cpSync(join(ROOT, "package-lock.json"), join(out, "package-lock.json"));
   }
+  if (existsSync(join(ROOT, "Dockerfile.fly"))) {
+    cpSync(join(ROOT, "Dockerfile.fly"), join(out, "Dockerfile.fly"));
+    cpSync(join(ROOT, "Dockerfile.fly"), join(out, "Dockerfile"));
+  }
+  const migrationSrc = join(
+    ROOT,
+    "supabase",
+    "migrations",
+    "20260722000000_google_mcp_oauth_accounts.sql",
+  );
+  if (existsSync(migrationSrc)) {
+    mkdirSync(join(out, "migrations"), { recursive: true });
+    mkdirSync(join(out, "supabase", "migrations"), { recursive: true });
+    cpSync(migrationSrc, join(out, "migrations", "20260722000000_google_mcp_oauth_accounts.sql"));
+    cpSync(
+      migrationSrc,
+      join(out, "supabase", "migrations", "20260722000000_google_mcp_oauth_accounts.sql"),
+    );
+  }
 
   console.log("Installing production dependencies into packaging/mcp…");
   execSync("npm install --omit=dev --ignore-scripts", {

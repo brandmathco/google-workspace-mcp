@@ -15,7 +15,7 @@ An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (C
 
 Authorize **one or many** Google accounts. Tokens stay on your machine (or your own Supabase project for remote deploy). This repository never ships secrets — you bring your own Google Cloud OAuth client.
 
-**Website:** [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) · **Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md)
+**Website:** [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) · **Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md) · **Fly deploy guide:** [docs/DEPLOY_FLY.md](./docs/DEPLOY_FLY.md)
 
 ![Inbox automation example — triage unread mail, apply labels, draft replies](docs/screenshots/05-inbox-automation-example.png)
 
@@ -32,10 +32,16 @@ From **[GitHub Releases](https://github.com/brandmathco/google-workspace-mcp/rel
 
 1. Open the installer (macOS: drag the app into **Applications**).
 2. Launch **Google Workspace MCP Setup**.
-3. Follow the in-app wizard: create Google Cloud keys → sign in to one or more Gmail accounts → **Write Cursor MCP config**.
+3. Follow the in-app wizard:
+   - What **Cursor** is (+ download link)
+   - **Google Cloud** keys (opens the right Console pages)
+   - **Supabase** for multi-account (SQL + paste service_role key)
+   - Connect Google accounts
+   - Optional **Fly.io** cloud deploy (installs Fly CLI, sign-in, paste env → sets secrets & deploys)
+   - Write **Cursor** MCP config (local and/or remote)
 4. Restart Cursor.
 
-The installer **bundles Node.js** and the MCP server. You do **not** need npm, Terminal, or a separate Node install. Cursor is pointed at the Node binary inside the app.
+The installer **bundles Node.js** and the MCP server. You do **not** need npm for local use. Fly deploy uses the wizard to install the Fly CLI for you.
 
 **macOS Gatekeeper:** if macOS says the app can’t be opened, Right-click the app → **Open** → **Open**.
 
@@ -256,24 +262,16 @@ Full templates and Gmail search tips: **[docs/USE_CASES.md](./docs/USE_CASES.md)
 
 ## Remote deployment (optional — Fly.io)
 
+**Easiest:** use the Setup Wizard → step **Fly.io** (install CLI, sign in, paste env values, deploy). Details: **[docs/DEPLOY_FLY.md](./docs/DEPLOY_FLY.md)**.
+
 Run the HTTP MCP endpoint so Cursor Cloud or other clients can connect over HTTPS instead of stdio.
 
-### 1. Prepare Fly config
+### Manual CLI
 
 ```bash
 cp fly.toml.example fly.toml
-```
-
-Edit `fly.toml` and set `app` to your Fly app name, then:
-
-```bash
+# set app name, then:
 fly apps create your-google-workspace-mcp
-fly deploy
-```
-
-### 2. Set secrets
-
-```bash
 fly secrets set \
   GOOGLE_OAUTH_CLIENT_ID="..." \
   GOOGLE_OAUTH_CLIENT_SECRET="..." \
@@ -284,6 +282,7 @@ fly secrets set \
   GOOGLE_TOKEN_ENCRYPTION_KEY="..." \
   MCP_API_KEY="your-random-api-key" \
   AUTHORIZE_HASH_KEY="your-random-hash-key"
+fly deploy
 ```
 
 Add `https://your-app.fly.dev/oauth2callback` as an **Authorized redirect URI** in Google Cloud Console.
@@ -360,7 +359,7 @@ Password-based automation (`authorize:all:auto`) is optional and **not** require
 
 ## Versioning & releases
 
-- SemVer in `package.json` (`1.4.0`, …)
+- SemVer in `package.json` (`1.5.0`, …)
 - Human-readable notes in [CHANGELOG.md](./CHANGELOG.md)
 - GitHub Releases (includes `.dmg` / Windows installers): [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
 

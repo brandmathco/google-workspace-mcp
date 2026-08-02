@@ -1,6 +1,6 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "type": "module",
   "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
   "license": "MIT",

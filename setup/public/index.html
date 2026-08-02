@@ -15,7 +15,6 @@
           href="https://www.brandmatchgrowth.com/"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="BrandMatchGrowth website"
         >
           <img
             class="brand-logo"
@@ -38,162 +37,193 @@
         <p class="eyebrow">BrandMatchGrowth · Google Workspace MCP</p>
         <h1>Setup Wizard</h1>
         <p class="lede">
-          Connect Gmail, Calendar, and Tasks to Cursor in a few guided steps.
-          No coding required — we’ll tell you exactly what to copy from Google.
+          We’ll walk you through Cursor, Google Cloud, Supabase (multi-account), optional Fly.io
+          cloud deploy, and connecting your inboxes — with buttons that open the right pages.
         </p>
         <p class="meta" id="versionLine">Checking your computer…</p>
       </header>
 
       <nav class="steps" aria-label="Setup steps">
-        <button type="button" class="step active" data-step="1" id="stepBtn1">1. Ready</button>
-        <button type="button" class="step" data-step="2">2. Google keys</button>
-        <button type="button" class="step" data-step="3">3. Sign in</button>
-        <button type="button" class="step" data-step="4">4. Cursor</button>
+        <button type="button" class="step active" data-step="1">1. Cursor</button>
+        <button type="button" class="step" data-step="2" id="stepBtn2">2. Ready</button>
+        <button type="button" class="step" data-step="3">3. Google</button>
+        <button type="button" class="step" data-step="4">4. Supabase</button>
+        <button type="button" class="step" data-step="5">5. Accounts</button>
+        <button type="button" class="step" data-step="6">6. Fly.io</button>
+        <button type="button" class="step" data-step="7">7. Finish</button>
       </nav>
 
       <main>
+        <!-- 1 Cursor -->
         <section class="panel active" id="panel-1">
-          <h2 id="installTitle">Install on this computer</h2>
+          <h2>What is Cursor?</h2>
+          <p>
+            <strong>Cursor</strong> is an AI code editor (like VS Code, but with a built-in AI
+            chat). This MCP server lets that AI
+            <em>actually use</em> your Gmail, Google Calendar, and Google Tasks — search mail,
+            draft replies, create events, and more.
+          </p>
+          <ul class="guide" style="list-style: disc">
+            <li>You chat in plain English inside Cursor</li>
+            <li>Cursor calls tools from this app (securely, with your Google login)</li>
+            <li>You stay in control — review drafts before sending</li>
+          </ul>
+          <div class="actions">
+            <button type="button" class="btn primary" data-open="https://cursor.com/download">
+              Open Cursor download page
+            </button>
+            <button type="button" class="btn" data-open="https://cursor.com/docs">
+              What is Cursor? (docs)
+            </button>
+            <button type="button" class="btn" id="btnToStep2">I have Cursor →</button>
+          </div>
+          <p class="fineprint">
+            Install Cursor on this computer first if you haven’t. You can finish the rest of this
+            wizard, then come back to Cursor at the end.
+          </p>
+        </section>
+
+        <!-- 2 Ready -->
+        <section class="panel" id="panel-2">
+          <h2 id="installTitle">Get this computer ready</h2>
           <p id="installIntro">
-            Prefer the <strong>macOS .dmg</strong> or <strong>Windows installer</strong> from
-            <a
-              href="https://github.com/brandmathco/google-workspace-mcp/releases"
-              target="_blank"
-              rel="noopener"
-              >GitHub Releases</a
-            >
-            — no Node.js or npm required. If you are using this developer wizard instead, we need
-            Node.js 20+.
+            The desktop installer already includes Node.js. If you used GitHub Releases, you’re
+            set. Developers cloning the repo may need a one-time install below.
           </p>
           <ul class="checklist" id="installChecklist"></ul>
           <div class="actions">
             <button type="button" class="btn primary" id="btnInstall">
               Install dependencies &amp; build
             </button>
-            <button type="button" class="btn" id="btnToStep2" disabled>Continue →</button>
+            <button type="button" class="btn" id="btnToStep3" disabled>Continue →</button>
           </div>
           <pre class="log hidden" id="installLog"></pre>
         </section>
 
-        <section class="panel" id="panel-2">
-          <h2>Create free Google Cloud keys</h2>
+        <!-- 3 Google -->
+        <section class="panel" id="panel-3">
+          <h2>Google Cloud — create your keys</h2>
           <p>
-            Google requires your own “OAuth client” so only <em>you</em> control access.
-            This takes about 5–10 minutes the first time.
+            Google requires <em>your</em> OAuth app so only you control access. Use the buttons —
+            each opens the exact Google page. Take about 5–10 minutes the first time.
           </p>
-
           <ol class="guide">
             <li>
-              Open
-              <a
-                href="https://console.cloud.google.com/projectcreate"
-                target="_blank"
-                rel="noopener"
-                >Create a Google Cloud project</a
-              >
-              → name it anything (e.g. <code>workspace-mcp</code>) → Create.
+              <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/projectcreate">
+                Open: Create project
+              </button>
+              Name it anything (e.g. <code>workspace-mcp</code>) → Create.
             </li>
             <li>
-              Enable these APIs (search each name → Enable):
-              <ul>
-                <li>
-                  <a
-                    href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
-                    target="_blank"
-                    rel="noopener"
-                    >Gmail API</a
-                  >
-                </li>
-                <li>
-                  <a
-                    href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com"
-                    target="_blank"
-                    rel="noopener"
-                    >Google Calendar API</a
-                  >
-                </li>
-                <li>
-                  <a
-                    href="https://console.cloud.google.com/apis/library/tasks.googleapis.com"
-                    target="_blank"
-                    rel="noopener"
-                    >Google Tasks API</a
-                  >
-                </li>
-              </ul>
+              Enable APIs (click each → Enable):
+              <div class="actions">
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail API</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com">Calendar API</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tasks.googleapis.com">Tasks API</button>
+              </div>
             </li>
             <li>
-              Open
-              <a
-                href="https://console.cloud.google.com/apis/credentials/consent"
-                target="_blank"
-                rel="noopener"
-                >OAuth consent screen</a
-              >
-              → choose <strong>External</strong> (personal Gmail) or Internal (Workspace only)
-              → fill App name + your email → Save. Add yourself as a
-              <strong>Test user</strong> if the app is in Testing mode.
+              <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/credentials/consent">
+                Open: OAuth consent screen
+              </button>
+              Choose <strong>External</strong> (personal Gmail) → fill App name + your email →
+              Save. Under <strong>Test users</strong>, add your Gmail address.
             </li>
             <li>
-              Open
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener"
-                >Credentials</a
-              >
-              → <strong>Create credentials</strong> → <strong>OAuth client ID</strong> →
-              Application type: <strong>Desktop app</strong> → Create.
+              <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/credentials">
+                Open: Credentials
+              </button>
+              → Create credentials → <strong>OAuth client ID</strong> → Application type:
+              <strong>Desktop app</strong> → Create. Copy Client ID + Client secret below.
             </li>
             <li>
-              Copy the <strong>Client ID</strong> and <strong>Client secret</strong> into the
-              form below. Also add this Authorized redirect URI if Google asks for one:<br />
+              If Google asks for a redirect URI, use:<br />
               <code id="redirectUriCode">http://127.0.0.1:3847/oauth2callback</code>
               <button type="button" class="btn tiny" id="btnCopyRedirect">Copy</button>
+              (Fly deploy later will give you a second HTTPS redirect URI.)
             </li>
           </ol>
 
           <form id="envForm" class="form">
             <label>
               Client ID
-              <input
-                name="clientId"
-                id="clientId"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="123456789-abcdef.apps.googleusercontent.com"
-                required
-              />
+              <input id="clientId" autocomplete="off" spellcheck="false" required
+                placeholder="….apps.googleusercontent.com" />
             </label>
             <label>
               Client Secret
-              <input
-                name="clientSecret"
-                id="clientSecret"
-                type="password"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="GOCSPX-…"
-                required
-              />
+              <input id="clientSecret" type="password" autocomplete="off" spellcheck="false" required
+                placeholder="GOCSPX-…" />
             </label>
             <p class="hint" id="envHint"></p>
             <div class="actions">
-              <button type="submit" class="btn primary">Save keys securely</button>
-              <button type="button" class="btn" id="btnToStep3" disabled>Continue →</button>
+              <button type="submit" class="btn primary">Save Google keys</button>
+              <button type="button" class="btn" id="btnToStep4" disabled>Continue →</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- 4 Supabase -->
+        <section class="panel" id="panel-4">
+          <h2>Supabase — multi-account storage (for Fly / cloud)</h2>
+          <p>
+            To keep <strong>many Google accounts</strong> on a shared Fly server, tokens are stored
+            encrypted in <strong>your</strong> Supabase project. Local-only Mac use can skip this
+            and use a file on this computer — but if you want Fly.io, do this step.
+          </p>
+          <ol class="guide">
+            <li>
+              <button type="button" class="btn tiny" data-open="https://supabase.com/dashboard">
+                Open Supabase dashboard
+              </button>
+              Sign in → <strong>New project</strong> → pick a password → Create.
+            </li>
+            <li>
+              Project Settings → <strong>API</strong>:
+              copy <strong>Project URL</strong> and the
+              <strong>service_role</strong> key (secret — not the anon key).
+            </li>
+            <li>
+              SQL Editor → New query → paste the SQL below → <strong>Run</strong>.
+              <div class="actions">
+                <button type="button" class="btn tiny" id="btnLoadSql">Load SQL</button>
+                <button type="button" class="btn tiny" id="btnCopySql">Copy SQL</button>
+                <button type="button" class="btn tiny" data-open="https://supabase.com/dashboard/project/_/sql/new">
+                  Open SQL Editor
+                </button>
+              </div>
+              <pre class="code" id="migrationSql">Click “Load SQL”…</pre>
+            </li>
+          </ol>
+          <form id="supabaseForm" class="form">
+            <label>
+              Supabase Project URL
+              <input id="supabaseUrl" autocomplete="off" spellcheck="false"
+                placeholder="https://xxxx.supabase.co" />
+            </label>
+            <label>
+              Service role key (secret)
+              <input id="supabaseServiceRoleKey" type="password" autocomplete="off" spellcheck="false"
+                placeholder="eyJ…" />
+            </label>
+            <p class="hint" id="supabaseHint"></p>
+            <div class="actions">
+              <button type="submit" class="btn primary">Save Supabase keys</button>
+              <button type="button" class="btn" id="btnSkipSupabase">Skip (local file only)</button>
+              <button type="button" class="btn" id="btnToStep5">Continue →</button>
             </div>
           </form>
           <p class="fineprint">
-            Keys are saved only on this computer in a local <code>.env</code> file
-            (never uploaded by this wizard). Do not share screenshots of the secret.
+            Never paste the service_role key into a public chat or commit it to GitHub.
           </p>
         </section>
 
-        <section class="panel" id="panel-3">
+        <!-- 5 Accounts -->
+        <section class="panel" id="panel-5">
           <h2>Connect Google account(s)</h2>
           <p>
-            Click below to open Google sign-in. Approve access for Gmail, Calendar, and Tasks.
-            Repeat for every inbox you want the AI to use — accounts stack; nothing is overwritten.
+            Sign in with Google and approve Gmail / Calendar / Tasks. Repeat for every inbox.
+            Accounts stack — nothing is overwritten.
           </p>
           <label class="inline">
             Optional label
@@ -205,33 +235,124 @@
             </button>
             <button type="button" class="btn" id="btnRefreshAccounts">Refresh list</button>
             <button type="button" class="btn" id="btnCancelAuth">Cancel waiting</button>
-            <button type="button" class="btn" id="btnToStep4">Continue →</button>
+            <button type="button" class="btn" id="btnToStep6">Continue →</button>
           </div>
           <p class="hint" id="authHint"></p>
           <ul class="accounts" id="accountsList"></ul>
+          <p class="fineprint">
+            Prefer connecting at least one account locally first. On Fly, you’ll authorize again
+            via your <code>https://….fly.dev/authorize?hashKey=…</code> link after deploy.
+          </p>
         </section>
 
-        <section class="panel" id="panel-4">
-          <h2>Add to Cursor</h2>
+        <!-- 6 Fly -->
+        <section class="panel" id="panel-6">
+          <h2>Fly.io — optional cloud deploy</h2>
           <p>
-            Cursor needs a short config that points at this app (and the Node.js bundled inside it).
-            Easiest: let the wizard write <code>~/.cursor/mcp.json</code> for you, then restart Cursor.
-            If you downloaded the installer, keep the app in <strong>Applications</strong> (macOS) or
-            the install folder (Windows) so those paths stay valid.
+            Deploy so Cursor Cloud (or any remote MCP client) can reach your server over HTTPS.
+            We’ll install the Fly CLI, help you sign in, collect env values, set secrets, and
+            deploy.
+          </p>
+          <ul class="checklist" id="flyChecklist"></ul>
+          <div class="actions">
+            <button type="button" class="btn" data-open="https://fly.io/">What is Fly.io?</button>
+            <button type="button" class="btn primary" id="btnFlyInstall">Install Fly CLI</button>
+            <button type="button" class="btn primary" id="btnFlyLogin">Sign in to Fly.io</button>
+            <button type="button" class="btn" id="btnFlyRefresh">Refresh status</button>
+          </div>
+          <p class="hint" id="flyHint"></p>
+
+          <h3 class="subhead">Deploy form — paste values, we set secrets</h3>
+          <form id="flyForm" class="form">
+            <label>
+              Fly app name (lowercase, unique)
+              <input id="flyAppName" autocomplete="off" spellcheck="false"
+                placeholder="my-gmail-mcp" required />
+            </label>
+            <label>
+              Region
+              <select id="flyRegion">
+                <option value="yyz">yyz — Toronto</option>
+                <option value="iad">iad — Ashburn, VA</option>
+                <option value="sjc">sjc — San Jose</option>
+                <option value="lhr">lhr — London</option>
+                <option value="ams">ams — Amsterdam</option>
+              </select>
+            </label>
+            <label>
+              Google Client ID
+              <input id="flyClientId" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>
+              Google Client Secret
+              <input id="flyClientSecret" type="password" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>
+              Supabase URL
+              <input id="flySupabaseUrl" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>
+              Supabase service_role key
+              <input id="flySupabaseKey" type="password" autocomplete="off" spellcheck="false" />
+            </label>
+            <p class="fineprint">
+              MCP API key, authorize hash, and encryption key are auto-generated if left blank.
+            </p>
+            <div class="actions">
+              <button type="submit" class="btn primary" id="btnFlyDeploy">
+                Set secrets &amp; deploy to Fly
+              </button>
+              <button type="button" class="btn" id="btnSkipFly">Skip Fly (local only)</button>
+              <button type="button" class="btn" id="btnToStep7">Continue →</button>
+            </div>
+          </form>
+          <pre class="log hidden" id="flyLog"></pre>
+          <div id="flySuccess" class="success-box hidden">
+            <h3>Deployed</h3>
+            <p id="flySuccessText"></p>
+            <ol class="guide">
+              <li>
+                Add this redirect URI in Google Cloud → Credentials → your OAuth client:<br />
+                <code id="flyRedirect"></code>
+                <button type="button" class="btn tiny" id="btnCopyFlyRedirect">Copy</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/credentials">
+                  Open Google Credentials
+                </button>
+              </li>
+              <li>
+                Authorize accounts on Fly:<br />
+                <code id="flyAuthorize"></code>
+                <button type="button" class="btn tiny" id="btnOpenFlyAuthorize">Open</button>
+              </li>
+            </ol>
+            <pre class="code" id="flyCursorSnippet"></pre>
+            <button type="button" class="btn tiny" id="btnCopyFlyCursor">Copy Cursor remote config</button>
+          </div>
+        </section>
+
+        <!-- 7 Finish -->
+        <section class="panel" id="panel-7">
+          <h2>Add to Cursor &amp; try it</h2>
+          <p>
+            <strong>Local (this Mac):</strong> write MCP config pointing at the Node.js bundled in
+            this app.<br />
+            <strong>Remote (Fly):</strong> use the JSON from the Fly step (URL + Bearer key).
           </p>
           <div class="actions">
             <button type="button" class="btn primary" id="btnWriteCursor">
-              Write Cursor MCP config
+              Write local Cursor MCP config
             </button>
-            <button type="button" class="btn" id="btnCopySnippet">Copy JSON</button>
+            <button type="button" class="btn" id="btnCopySnippet">Copy local JSON</button>
+            <button type="button" class="btn" data-open="https://cursor.com/download">
+              Open Cursor
+            </button>
           </div>
           <p class="hint" id="cursorHint"></p>
           <pre class="code" id="cursorSnippet">Loading…</pre>
           <ol class="guide">
             <li>Quit and reopen Cursor (or reload MCP servers).</li>
             <li>
-              Open <strong>Cursor Settings → MCP</strong> and confirm
-              <code>google-workspace</code> shows tools.
+              Settings → MCP → confirm <code>google-workspace</code> (or remote) shows tools.
             </li>
             <li>
               Try: <em>“List my unread Gmail from the last 24 hours”</em> or
@@ -239,9 +360,17 @@
             </li>
           </ol>
           <p class="fineprint">
-            Tokens stay in <code>~/.config/google-workspace-mcp/accounts.json</code> on this
-            machine. Never commit <code>.env</code>, password files, or that accounts file to
-            GitHub.
+            Need help shipping AI + growth systems?
+            <a href="https://www.brandmatchgrowth.com/" target="_blank" rel="noopener noreferrer"
+              >BrandMatchGrowth</a
+            >
+            ·
+            <a
+              href="https://www.brandmatchgrowth.com/book-a-call"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Book a call</a
+            >.
           </p>
         </section>
       </main>
@@ -263,13 +392,6 @@
         <span>·</span>
         <a href="https://github.com/brandmathco/google-workspace-mcp" target="_blank" rel="noopener"
           >GitHub</a
-        >
-        <span>·</span>
-        <a
-          href="https://github.com/brandmathco/google-workspace-mcp/blob/main/docs/USE_CASES.md"
-          target="_blank"
-          rel="noopener"
-          >Use cases</a
         >
         <span>·</span>
         MIT License

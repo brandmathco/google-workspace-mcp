@@ -292,6 +292,40 @@ body {
   color: var(--muted);
 }
 
+.subhead {
+  margin: 22px 0 8px;
+  font-size: 1.05rem;
+  color: var(--gold);
+}
+
+.form select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.32);
+  color: var(--text);
+  padding: 11px 12px;
+  font: inherit;
+}
+
+.success-box {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(62, 207, 142, 0.35);
+  background: rgba(62, 207, 142, 0.08);
+}
+
+.success-box.hidden,
+.hidden {
+  display: none !important;
+}
+
+.success-box h3 {
+  margin: 0 0 8px;
+  color: var(--ok);
+}
+
 footer {
   margin-top: 22px;
   color: var(--muted);

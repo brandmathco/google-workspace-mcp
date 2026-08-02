@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-08-01
+
+### Added
+
+- Setup Wizard guided path for **Cursor**, **Google Cloud**, **Supabase multi-account**, and **Fly.io deploy**
+- One-click openers for Google Console / Supabase / Cursor / Fly pages
+- Fly CLI install + sign-in + deploy form that sets secrets for you
+- Supabase SQL loader/copy for the multi-account migration
+- `docs/DEPLOY_FLY.md` and `Dockerfile.fly` for wizard/packaged deploys
+
 ## [1.4.0] — 2026-08-01
 
 ### Added
@@ -70,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial public release: Gmail, Calendar, and Tasks MCP tools
 - Local authorize script and optional Fly.io HTTP MCP endpoint
 
+[1.5.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.1.0...v1.2.0

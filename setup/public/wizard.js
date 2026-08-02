@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 
 let statusCache = null;
 let pollTimer = null;
+let flyCursorSnippet = "";
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -24,14 +25,10 @@ function setStep(step) {
   document.querySelectorAll(".panel").forEach((el) => {
     el.classList.toggle("active", el.id === `panel-${step}`);
   });
-  if (step === 3) {
-    startAccountPoll();
-  } else {
-    stopAccountPoll();
-  }
-  if (step === 4) {
-    loadCursorConfig();
-  }
+  if (step === 5) startAccountPoll();
+  else stopAccountPoll();
+  if (step === 6) refreshFlyStatus();
+  if (step === 7) loadCursorConfig();
 }
 
 function checklistItem(ok, text) {
@@ -50,33 +47,26 @@ function renderInstall(status) {
   if (packaged) {
     $("installTitle").textContent = "Installer ready";
     $("installIntro").textContent =
-      "This app already includes everything Cursor needs (including Node.js). No Terminal, npm, or separate downloads.";
-    $("stepBtn1").textContent = "1. Ready";
-    $("btnInstall").classList.add("hidden");
+      "This app already includes everything Cursor needs (including Node.js). No Terminal or npm.";
     $("btnInstall").style.display = "none";
   }
   list.replaceChildren(
     checklistItem(status.node.ok, status.node.message),
     checklistItem(
       status.depsInstalled,
-      packaged
-        ? "MCP server bundled in this app"
-        : status.depsInstalled
-          ? "Dependencies installed"
-          : "Dependencies not installed yet",
+      packaged ? "MCP server bundled in this app" : status.depsInstalled
+        ? "Dependencies installed"
+        : "Dependencies not installed yet",
     ),
-    checklistItem(
-      status.distBuilt,
-      status.distBuilt ? "Server files ready" : "Server files missing",
-    ),
+    checklistItem(status.distBuilt, status.distBuilt ? "Server files ready" : "Server files missing"),
     checklistItem(
       true,
-      status.envPath
-        ? `Secrets folder: ${status.userConfigDir || status.envPath}`
+      status.userConfigDir
+        ? `Secrets folder: ${status.userConfigDir}`
         : "Secrets stay on this computer only",
     ),
   );
-  $("btnToStep2").disabled = !(status.node.ok && status.depsInstalled && status.distBuilt);
+  $("btnToStep3").disabled = !(status.node.ok && status.depsInstalled && status.distBuilt);
   $("versionLine").textContent = `v${status.version} · ${status.platform}${packaged ? " · installer" : ""}`;
   $("redirectUriCode").textContent = status.redirectUri;
 }
@@ -84,7 +74,8 @@ function renderInstall(status) {
 function renderAccounts(accounts) {
   const list = $("accountsList");
   if (!accounts.length) {
-    list.innerHTML = "<li><span class=\"dot warn\"></span><span>No accounts connected yet.</span></li>";
+    list.innerHTML =
+      '<li><span class="dot warn"></span><span>No accounts connected yet.</span></li>';
     return;
   }
   list.replaceChildren(
@@ -102,15 +93,43 @@ function renderAccounts(accounts) {
   );
 }
 
+function renderFly(fly) {
+  const list = $("flyChecklist");
+  if (!fly) {
+    list.replaceChildren(checklistItem(false, "Checking Fly CLI…"));
+    return;
+  }
+  list.replaceChildren(
+    checklistItem(fly.installed, fly.installed ? `Fly CLI: ${fly.version || "installed"}` : "Fly CLI not installed"),
+    checklistItem(fly.loggedIn, fly.loggedIn ? `Signed in: ${fly.whoami}` : "Not signed in to Fly.io"),
+  );
+  $("flyHint").textContent = fly.message || "";
+}
+
 async function refreshStatus() {
   statusCache = await api("/api/status");
   renderInstall(statusCache);
   renderAccounts(statusCache.accounts || []);
-  $("btnToStep3").disabled = !statusCache.hasEnv;
+  renderFly(statusCache.fly);
+  $("btnToStep4").disabled = !statusCache.hasEnv;
   if (statusCache.hasEnv) {
     $("envHint").textContent = `Saved Client ID: ${statusCache.clientIdPreview}`;
+    if (!$("flyClientId").value) $("flyClientId").value = "";
   }
+  if (statusCache.hasSupabase) {
+    $("supabaseHint").textContent = `Saved Supabase: ${statusCache.supabaseUrlPreview}`;
+  }
+  // Prefill fly form from status hints only for non-secrets
   return statusCache;
+}
+
+async function refreshFlyStatus() {
+  try {
+    const fly = await api("/api/fly/status");
+    renderFly(fly);
+  } catch (error) {
+    $("flyHint").textContent = error.message;
+  }
 }
 
 async function loadCursorConfig() {
@@ -126,11 +145,12 @@ function startAccountPoll() {
       renderAccounts(data.accounts || []);
       if (!data.oauthBusy && $("authHint").dataset.waiting === "1") {
         $("authHint").dataset.waiting = "0";
-        $("authHint").textContent = "If Google finished successfully, your account should appear above.";
+        $("authHint").textContent =
+          "If Google finished successfully, your account should appear above.";
         refreshStatus();
       }
     } catch {
-      // ignore transient errors while polling
+      // ignore
     }
   }, 2000);
 }
@@ -146,9 +166,25 @@ document.querySelectorAll(".step").forEach((btn) => {
   btn.addEventListener("click", () => setStep(btn.dataset.step));
 });
 
+document.querySelectorAll("[data-open]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const url = btn.getAttribute("data-open");
+    try {
+      await api("/api/open-url", { method: "POST", body: JSON.stringify({ url }) });
+    } catch {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  });
+});
+
 $("btnToStep2").addEventListener("click", () => setStep(2));
 $("btnToStep3").addEventListener("click", () => setStep(3));
 $("btnToStep4").addEventListener("click", () => setStep(4));
+$("btnToStep5").addEventListener("click", () => setStep(5));
+$("btnToStep6").addEventListener("click", () => setStep(6));
+$("btnToStep7").addEventListener("click", () => setStep(7));
+$("btnSkipSupabase").addEventListener("click", () => setStep(5));
+$("btnSkipFly").addEventListener("click", () => setStep(7));
 
 $("btnInstall").addEventListener("click", async () => {
   const log = $("installLog");
@@ -178,17 +214,51 @@ $("envForm").addEventListener("submit", async (event) => {
       }),
     });
     $("clientSecret").value = "";
-    $("envHint").textContent = "Saved on this computer. Continue to connect Google.";
+    $("envHint").textContent = "Saved on this computer.";
+    $("flyClientId").value = $("clientId").value.trim();
     await refreshStatus();
-    $("btnToStep3").disabled = false;
+    $("btnToStep4").disabled = false;
   } catch (error) {
     $("envHint").textContent = error.message;
   }
 });
 
+$("supabaseForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("supabaseHint").textContent = "Saving…";
+  try {
+    await api("/api/save-supabase", {
+      method: "POST",
+      body: JSON.stringify({
+        supabaseUrl: $("supabaseUrl").value.trim(),
+        supabaseServiceRoleKey: $("supabaseServiceRoleKey").value.trim(),
+      }),
+    });
+    $("flySupabaseUrl").value = $("supabaseUrl").value.trim();
+    $("flySupabaseKey").value = $("supabaseServiceRoleKey").value.trim();
+    $("supabaseServiceRoleKey").value = "";
+    $("supabaseHint").textContent = "Supabase keys saved for Fly multi-account.";
+    await refreshStatus();
+  } catch (error) {
+    $("supabaseHint").textContent = error.message;
+  }
+});
+
+$("btnLoadSql").addEventListener("click", async () => {
+  const data = await api("/api/migration-sql");
+  $("migrationSql").textContent = data.sql;
+});
+
+$("btnCopySql").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("migrationSql").textContent);
+  $("btnCopySql").textContent = "Copied";
+  setTimeout(() => {
+    $("btnCopySql").textContent = "Copy SQL";
+  }, 1500);
+});
+
 $("btnCopyRedirect").addEventListener("click", async () => {
-  const text = $("redirectUriCode").textContent;
-  await navigator.clipboard.writeText(text);
+  await navigator.clipboard.writeText($("redirectUriCode").textContent);
   $("btnCopyRedirect").textContent = "Copied";
   setTimeout(() => {
     $("btnCopyRedirect").textContent = "Copy";
@@ -199,13 +269,12 @@ $("btnAuthorize").addEventListener("click", async () => {
   $("authHint").textContent = "Opening Google sign-in…";
   $("authHint").dataset.waiting = "1";
   try {
-    const result = await api("/api/authorize", {
+    await api("/api/authorize", {
       method: "POST",
       body: JSON.stringify({ label: $("accountLabel").value.trim() || undefined }),
     });
-    $("authHint").textContent = result.authUrl
-      ? "Browser opened. Sign in and click Allow. Come back here afterward."
-      : "Waiting for Google…";
+    $("authHint").textContent =
+      "Browser opened. Sign in and click Allow. Come back here afterward.";
     startAccountPoll();
   } catch (error) {
     $("authHint").dataset.waiting = "0";
@@ -220,9 +289,95 @@ $("btnCancelAuth").addEventListener("click", async () => {
   $("authHint").textContent = "Authorization wait cancelled.";
 });
 
+$("btnFlyInstall").addEventListener("click", async () => {
+  $("flyHint").textContent = "Installing Fly CLI…";
+  $("flyLog").classList.remove("hidden");
+  $("flyLog").textContent = "Working…\n";
+  try {
+    const result = await api("/api/fly/install", { method: "POST", body: "{}" });
+    $("flyLog").textContent = result.log || "Installed.";
+    renderFly(result.status);
+    $("flyHint").textContent = result.status?.message || "Installed. Sign in next.";
+  } catch (error) {
+    $("flyLog").textContent = error.message;
+    $("flyHint").textContent = error.message;
+  }
+});
+
+$("btnFlyLogin").addEventListener("click", async () => {
+  $("flyHint").textContent = "Opening Fly sign-in…";
+  try {
+    const result = await api("/api/fly/login", { method: "POST", body: "{}" });
+    $("flyHint").textContent = result.message;
+    const timer = setInterval(async () => {
+      const fly = await api("/api/fly/status");
+      renderFly(fly);
+      if (fly.loggedIn) {
+        clearInterval(timer);
+        $("flyHint").textContent = `Signed in as ${fly.whoami}`;
+      }
+    }, 3000);
+    setTimeout(() => clearInterval(timer), 180000);
+  } catch (error) {
+    $("flyHint").textContent = error.message;
+  }
+});
+
+$("btnFlyRefresh").addEventListener("click", () => refreshFlyStatus());
+
+$("flyForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("flyLog").classList.remove("hidden");
+  $("flyLog").textContent = "Deploying… this can take several minutes.\n";
+  $("btnFlyDeploy").disabled = true;
+  $("flySuccess").classList.add("hidden");
+  try {
+    const result = await api("/api/fly/deploy", {
+      method: "POST",
+      body: JSON.stringify({
+        appName: $("flyAppName").value.trim(),
+        region: $("flyRegion").value,
+        googleClientId: $("flyClientId").value.trim() || $("clientId").value.trim(),
+        googleClientSecret: $("flyClientSecret").value.trim() || $("clientSecret").value.trim(),
+        supabaseUrl: $("flySupabaseUrl").value.trim() || $("supabaseUrl").value.trim(),
+        supabaseServiceRoleKey:
+          $("flySupabaseKey").value.trim() || $("supabaseServiceRoleKey").value.trim(),
+      }),
+    });
+    $("flyLog").textContent = result.log || "Done.";
+    if (result.ok) {
+      $("flySuccess").classList.remove("hidden");
+      $("flySuccessText").textContent = `App URL: ${result.appUrl}`;
+      $("flyRedirect").textContent = result.redirectUri;
+      $("flyAuthorize").textContent = result.authorizeUrl;
+      flyCursorSnippet = result.cursorRemoteSnippet || "";
+      $("flyCursorSnippet").textContent = flyCursorSnippet;
+      $("flyHint").textContent = "Deploy succeeded. Add the redirect URI in Google, then authorize.";
+    }
+  } catch (error) {
+    $("flyLog").textContent = error.message;
+    $("flyHint").textContent = error.message;
+  } finally {
+    $("btnFlyDeploy").disabled = false;
+  }
+});
+
+$("btnCopyFlyRedirect").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("flyRedirect").textContent);
+});
+
+$("btnOpenFlyAuthorize").addEventListener("click", () => {
+  const url = $("flyAuthorize").textContent;
+  if (url) window.open(url, "_blank", "noopener,noreferrer");
+});
+
+$("btnCopyFlyCursor").addEventListener("click", async () => {
+  await navigator.clipboard.writeText(flyCursorSnippet || $("flyCursorSnippet").textContent);
+});
+
 $("btnCopySnippet").addEventListener("click", async () => {
   await navigator.clipboard.writeText($("cursorSnippet").textContent);
-  $("cursorHint").textContent = "JSON copied. Paste into Cursor MCP settings if you prefer manual setup.";
+  $("cursorHint").textContent = "JSON copied.";
 });
 
 $("btnWriteCursor").addEventListener("click", async () => {
@@ -238,18 +393,10 @@ $("btnWriteCursor").addEventListener("click", async () => {
 refreshStatus()
   .then((status) => {
     if (status.packaged && status.depsInstalled && status.distBuilt) {
-      setStep(status.hasEnv ? (status.accounts?.length ? 4 : 3) : 2);
+      setStep(status.hasEnv ? 4 : 1);
       return;
     }
-    if (status.depsInstalled && status.distBuilt) {
-      if (status.hasEnv) {
-        setStep(status.accounts?.length ? 4 : 3);
-      } else {
-        setStep(2);
-      }
-    } else {
-      setStep(1);
-    }
+    setStep(1);
   })
   .catch((error) => {
     $("versionLine").textContent = error.message;

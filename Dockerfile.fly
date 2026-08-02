@@ -1,0 +1,18 @@
+# Used by the Setup Wizard / packaged installer for Fly deploys.
+# Expects precompiled JS under ./src (from tsconfig.packaging.json output).
+FROM node:22-slim
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8080
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY src ./dist
+
+EXPOSE 8080
+
+CMD ["node", "dist/http.js"]
