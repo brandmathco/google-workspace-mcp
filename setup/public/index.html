@@ -19,7 +19,7 @@
       </header>
 
       <nav class="steps" aria-label="Setup steps">
-        <button type="button" class="step active" data-step="1">1. Install</button>
+        <button type="button" class="step active" data-step="1" id="stepBtn1">1. Ready</button>
         <button type="button" class="step" data-step="2">2. Google keys</button>
         <button type="button" class="step" data-step="3">3. Sign in</button>
         <button type="button" class="step" data-step="4">4. Cursor</button>
@@ -27,12 +27,17 @@
 
       <main>
         <section class="panel active" id="panel-1">
-          <h2>Install on this computer</h2>
-          <p>
-            We need <strong>Node.js 20+</strong> (free). If the check below fails,
-            install it from
-            <a href="https://nodejs.org" target="_blank" rel="noopener">nodejs.org</a>
-            (click the big green LTS button), then re-open this wizard.
+          <h2 id="installTitle">Install on this computer</h2>
+          <p id="installIntro">
+            Prefer the <strong>macOS .dmg</strong> or <strong>Windows installer</strong> from
+            <a
+              href="https://github.com/brandmathco/google-workspace-mcp/releases"
+              target="_blank"
+              rel="noopener"
+              >GitHub Releases</a
+            >
+            — no Node.js or npm required. If you are using this developer wizard instead, we need
+            Node.js 20+.
           </p>
           <ul class="checklist" id="installChecklist"></ul>
           <div class="actions">
@@ -183,8 +188,10 @@
         <section class="panel" id="panel-4">
           <h2>Add to Cursor</h2>
           <p>
-            Cursor needs a short config that points at this app. Easiest: let the wizard write
-            <code>~/.cursor/mcp.json</code> for you, then restart Cursor.
+            Cursor needs a short config that points at this app (and the Node.js bundled inside it).
+            Easiest: let the wizard write <code>~/.cursor/mcp.json</code> for you, then restart Cursor.
+            If you downloaded the installer, keep the app in <strong>Applications</strong> (macOS) or
+            the install folder (Windows) so those paths stay valid.
           </p>
           <div class="actions">
             <button type="button" class="btn primary" id="btnWriteCursor">

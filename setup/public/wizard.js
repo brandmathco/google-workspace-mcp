@@ -46,13 +46,38 @@ function checklistItem(ok, text) {
 
 function renderInstall(status) {
   const list = $("installChecklist");
+  const packaged = Boolean(status.packaged);
+  if (packaged) {
+    $("installTitle").textContent = "Installer ready";
+    $("installIntro").textContent =
+      "This app already includes everything Cursor needs (including Node.js). No Terminal, npm, or separate downloads.";
+    $("stepBtn1").textContent = "1. Ready";
+    $("btnInstall").classList.add("hidden");
+    $("btnInstall").style.display = "none";
+  }
   list.replaceChildren(
     checklistItem(status.node.ok, status.node.message),
-    checklistItem(status.depsInstalled, status.depsInstalled ? "Dependencies installed" : "Dependencies not installed yet"),
-    checklistItem(status.distBuilt, status.distBuilt ? "Project built (dist/ ready)" : "Project not built yet"),
+    checklistItem(
+      status.depsInstalled,
+      packaged
+        ? "MCP server bundled in this app"
+        : status.depsInstalled
+          ? "Dependencies installed"
+          : "Dependencies not installed yet",
+    ),
+    checklistItem(
+      status.distBuilt,
+      status.distBuilt ? "Server files ready" : "Server files missing",
+    ),
+    checklistItem(
+      true,
+      status.envPath
+        ? `Secrets folder: ${status.userConfigDir || status.envPath}`
+        : "Secrets stay on this computer only",
+    ),
   );
   $("btnToStep2").disabled = !(status.node.ok && status.depsInstalled && status.distBuilt);
-  $("versionLine").textContent = `v${status.version} · ${status.platform} · ${status.repoRoot}`;
+  $("versionLine").textContent = `v${status.version} · ${status.platform}${packaged ? " · installer" : ""}`;
   $("redirectUriCode").textContent = status.redirectUri;
 }
 
@@ -212,6 +237,10 @@ $("btnWriteCursor").addEventListener("click", async () => {
 
 refreshStatus()
   .then((status) => {
+    if (status.packaged && status.depsInstalled && status.distBuilt) {
+      setStep(status.hasEnv ? (status.accounts?.length ? 4 : 3) : 2);
+      return;
+    }
     if (status.depsInstalled && status.distBuilt) {
       if (status.hasEnv) {
         setStep(status.accounts?.length ? 4 : 3);

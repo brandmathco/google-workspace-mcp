@@ -8,33 +8,38 @@ Authorize **one or many** Google accounts. Tokens stay on your machine (or your 
 
 ![Inbox automation example — triage unread mail, apply labels, draft replies](docs/screenshots/05-inbox-automation-example.png)
 
-## Easy setup (no coding)
+## Easy setup (no coding / no npm)
 
-Best path if you are new to Node / terminals.
+### Recommended — download the installer
 
-### macOS
+From **[GitHub Releases](https://github.com/brandmathco/google-workspace-mcp/releases)**:
 
-1. Install **Node.js 20+** from [nodejs.org](https://nodejs.org) (LTS) if you do not have it.
-2. Download or clone this repo.
-3. Double-click **`Start Setup.command`**  
-   (If macOS blocks it: Right-click → Open → Open.)
-4. Follow the browser wizard: create Google keys → connect accounts → write Cursor config.
+| Platform | Installer |
+|----------|-----------|
+| **macOS** (Apple Silicon) | `Google Workspace MCP Setup-*.dmg` |
+| **Windows** | `Google Workspace MCP Setup Setup *.exe` (NSIS) |
 
-### Windows
+1. Open the installer (macOS: drag the app into **Applications**).
+2. Launch **Google Workspace MCP Setup**.
+3. Follow the in-app wizard: create Google Cloud keys → sign in to one or more Gmail accounts → **Write Cursor MCP config**.
+4. Restart Cursor.
 
-1. Install **Node.js 20+** from [nodejs.org](https://nodejs.org) (LTS) if you do not have it.
-2. Download or clone this repo.
-3. Double-click **`Start Setup.bat`**.
-4. Follow the same wizard steps in your browser.
+The installer **bundles Node.js** and the MCP server. You do **not** need npm, Terminal, or a separate Node install. Cursor is pointed at the Node binary inside the app.
 
-Or from a terminal in this folder:
+**macOS Gatekeeper:** if macOS says the app can’t be opened, Right-click the app → **Open** → **Open**.
+
+**Tip:** finish dragging to Applications *before* writing the Cursor config, so paths stay stable.
+
+### Alternative — developer clone (requires Node)
 
 ```bash
+git clone https://github.com/brandmathco/google-workspace-mcp.git
+cd google-workspace-mcp
 npm install
 npm run setup
 ```
 
-The wizard teaches you how to create a Google Cloud **Desktop OAuth client**, saves `.env` only on your computer, connects multiple Gmail accounts, and can write `~/.cursor/mcp.json` for you.
+Or double-click `Start Setup.command` (macOS) / `Start Setup.bat` (Windows) after installing [Node.js 20+](https://nodejs.org).
 
 ## What you can automate
 
@@ -344,9 +349,16 @@ Password-based automation (`authorize:all:auto`) is optional and **not** require
 
 ## Versioning & releases
 
-- SemVer in `package.json` (`1.2.0`, …)
+- SemVer in `package.json` (`1.3.0`, …)
 - Human-readable notes in [CHANGELOG.md](./CHANGELOG.md)
-- GitHub Releases: [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
+- GitHub Releases (includes `.dmg` / Windows installers): [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
+
+### Building installers (maintainers)
+
+```bash
+npm run desktop:dist:mac    # → dist-installers/*.dmg  (Apple Silicon)
+npm run desktop:dist:win    # → dist-installers/*Setup*.exe
+```
 
 ## Security notes
 

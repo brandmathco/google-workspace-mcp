@@ -1,6 +1,6 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "description": "MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
   "license": "MIT",
@@ -52,6 +52,10 @@
     "authorize:all": "tsx scripts/authorize-all.ts",
     "authorize:all:auto": "tsx scripts/authorize-all-auto.ts",
     "typecheck": "tsc --noEmit",
+    "desktop:prepare": "node scripts/prepare-desktop-bundle.mjs",
+    "desktop:prepare:win": "node scripts/prepare-desktop-bundle.mjs --platform=win32 --arch=x64",
+    "desktop:dist:mac": "npm run desktop:prepare && npm --prefix desktop install && npm --prefix desktop run dist:mac",
+    "desktop:dist:win": "npm run desktop:prepare:win && npm --prefix desktop install && npm --prefix desktop run dist:win",
     "prepublishOnly": "npm run build"
   },
   "engines": {

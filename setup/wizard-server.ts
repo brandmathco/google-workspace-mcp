@@ -2,6 +2,8 @@
 /**
  * Beginner-friendly local setup wizard for Google Workspace MCP.
  * Serves a guided UI on http://127.0.0.1:3951 — no coding required.
+ *
+ * Packaged installer (Electron) imports {@link startWizardServer} with openBrowser: false.
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -14,7 +16,7 @@ import {
   copyFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createOAuthClientForSetup, getAuthorizationUrl } from "../src/auth/googleAuth.js";
@@ -22,17 +24,46 @@ import { saveAuthorizedAccount, getAccountStore } from "../src/auth/accountStore
 import { createOAuthState, consumeOAuthState } from "../src/auth/oauthStateStore.js";
 import { renderAuthorizationCompleteHtml } from "../src/auth/authorizeCompleteHtml.js";
 import { loadEnvFile } from "../src/loadEnv.js";
+import {
+  isPackagedInstall,
+  resolveAppRoot,
+  resolveBundledNodePath,
+  resolveUserConfigDir,
+  resolveUserEnvPath,
+} from "../src/paths.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(__dirname, "..");
 const PUBLIC = join(__dirname, "public");
-const WIZARD_PORT = Number(process.env.SETUP_WIZARD_PORT ?? 3951);
+const DEFAULT_WIZARD_PORT = Number(process.env.SETUP_WIZARD_PORT ?? 3951);
 const OAUTH_CALLBACK_PORT = 3847;
 const OAUTH_REDIRECT = `http://127.0.0.1:${OAUTH_CALLBACK_PORT}/oauth2callback`;
 
 loadEnvFile();
 
 type JsonBody = Record<string, unknown>;
+
+export interface WizardServerOptions {
+  port?: number;
+  openBrowser?: boolean;
+  /** Override app root (dist + node_modules). */
+  appRoot?: string;
+}
+
+export interface WizardServerHandle {
+  url: string;
+  port: number;
+  close: () => Promise<void>;
+}
+
+function appRoot(options?: WizardServerOptions): string {
+  if (options?.appRoot) return options.appRoot;
+  // paths.ts lives in src/ (or dist/); its parent is the app/package root.
+  return resolveAppRoot();
+}
+
+function mcpDistIndex(root: string): string {
+  return join(root, "dist", "index.js");
+}
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body, null, 2);
@@ -104,7 +135,8 @@ function parseEnvFile(path: string): Record<string, string> {
 }
 
 function writeEnvFile(values: Record<string, string>): void {
-  const envPath = join(ROOT, ".env");
+  const envPath = resolveUserEnvPath();
+  mkdirSync(dirname(envPath), { recursive: true });
   const existing = parseEnvFile(envPath);
   const merged = { ...existing, ...values };
 
@@ -140,27 +172,39 @@ function writeEnvFile(values: Record<string, string>): void {
   for (const [key, value] of Object.entries(merged)) {
     process.env[key] = value;
   }
+  process.env.GOOGLE_MCP_ENV_FILE = envPath;
 }
 
 function nodeReady(): { ok: boolean; version: string; message: string } {
+  if (isPackagedInstall()) {
+    const bundled = resolveBundledNodePath();
+    return {
+      ok: true,
+      version: process.version,
+      message: bundled
+        ? `Installer includes Node.js (bundled) — no separate install needed`
+        : `Running inside the installer app — no separate Node.js install needed`,
+    };
+  }
   const version = process.version;
   const major = Number(version.slice(1).split(".")[0]);
   if (major < 20) {
     return {
       ok: false,
       version,
-      message: `Node.js 20+ is required. You have ${version}. Install from https://nodejs.org`,
+      message: `Node.js 20+ is required. You have ${version}. Prefer the macOS/Windows installer from GitHub Releases, or install Node from https://nodejs.org`,
     };
   }
   return { ok: true, version, message: `Node.js ${version}` };
 }
 
-function depsInstalled(): boolean {
-  return existsSync(join(ROOT, "node_modules", "@modelcontextprotocol", "sdk"));
+function depsInstalled(root: string): boolean {
+  if (isPackagedInstall()) return true;
+  return existsSync(join(root, "node_modules", "@modelcontextprotocol", "sdk"));
 }
 
-function distBuilt(): boolean {
-  return existsSync(join(ROOT, "dist", "index.js"));
+function distBuilt(root: string): boolean {
+  return existsSync(mcpDistIndex(root));
 }
 
 async function listAccountsSafe(): Promise<
@@ -175,18 +219,20 @@ async function listAccountsSafe(): Promise<
   }
 }
 
-function cursorMcpSnippet(absoluteDist: string, env: Record<string, string>): string {
+function resolveNodeCommand(root: string): string {
+  return resolveBundledNodePath() ?? "node";
+}
+
+function cursorMcpSnippet(root: string, envFile: string): string {
   return JSON.stringify(
     {
       mcpServers: {
         "google-workspace": {
-          command: "node",
-          args: [absoluteDist],
+          command: resolveNodeCommand(root),
+          args: [mcpDistIndex(root)],
           env: {
-            GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-            GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
-            GOOGLE_OAUTH_REDIRECT_URI:
-              env.GOOGLE_OAUTH_REDIRECT_URI ?? OAUTH_REDIRECT,
+            GOOGLE_MCP_ENV_FILE: envFile,
+            GOOGLE_MCP_APP_ROOT: root,
           },
         },
       },
@@ -220,10 +266,16 @@ function cursorConfigPaths(): string[] {
   return [join(home, ".cursor", "mcp.json")];
 }
 
-async function runInstall(): Promise<{ ok: boolean; log: string }> {
+async function runInstall(root: string): Promise<{ ok: boolean; log: string }> {
+  if (isPackagedInstall()) {
+    return {
+      ok: true,
+      log: "Installer build already includes dependencies. Nothing to download.",
+    };
+  }
   try {
     const log = execSync("npm install && npm run build", {
-      cwd: ROOT,
+      cwd: root,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, npm_config_fund: "false" },
@@ -257,11 +309,12 @@ async function startAuthorize(label?: string): Promise<{ ok: boolean; authUrl?: 
     return { ok: false, error: "An authorization is already in progress. Finish or cancel it first." };
   }
 
-  const env = parseEnvFile(join(ROOT, ".env"));
+  loadEnvFile();
+  const env = parseEnvFile(resolveUserEnvPath());
   if (!env.GOOGLE_OAUTH_CLIENT_ID?.trim() || !env.GOOGLE_OAUTH_CLIENT_SECRET?.trim()) {
     return {
       ok: false,
-      error: "Save your Google Client ID and Client Secret first (step 2).",
+      error: "Save your Google Client ID and Client Secret first (Google keys step).",
     };
   }
 
@@ -382,17 +435,106 @@ function contentTypeFor(filePath: string): string {
   return "application/octet-stream";
 }
 
-async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+function readPackageVersion(root: string): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      version?: string;
+    };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+function serveStatic(res: ServerResponse, urlPath: string): void {
+  const relative = urlPath === "/" ? "/index.html" : urlPath;
+  const safe = join(PUBLIC, relative.replace(/^\/+/, ""));
+  if (!safe.startsWith(PUBLIC) || !existsSync(safe)) {
+    sendText(res, 404, "Not found", "text/plain");
+    return;
+  }
+  const body = readFileSync(safe);
+  res.writeHead(200, {
+    "Content-Type": contentTypeFor(safe),
+    "Cache-Control": "no-store",
+  });
+  res.end(body);
+}
+
+export async function startWizardServer(
+  options: WizardServerOptions = {},
+): Promise<WizardServerHandle> {
+  const root = appRoot(options);
+  process.env.GOOGLE_MCP_APP_ROOT = root;
+  const port = options.port ?? DEFAULT_WIZARD_PORT;
+  const shouldOpenBrowser = options.openBrowser ?? true;
+
+  if (!(await portFree(port))) {
+    throw new Error(
+      `Setup wizard port ${port} is already in use. Close the other Setup window and try again.`,
+    );
+  }
+
+  const server = createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
+      if (url.pathname.startsWith("/api/")) {
+        await handleApi(req, res, url, root);
+        return;
+      }
+      serveStatic(res, url.pathname);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      sendJson(res, 500, { error: message });
+    }
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.listen(port, "127.0.0.1", () => resolve());
+    server.on("error", reject);
+  });
+
+  const url = `http://127.0.0.1:${port}`;
+  console.log("\nGoogle Workspace MCP — Setup Wizard\n");
+  console.log(`Open: ${url}\n`);
+  if (shouldOpenBrowser) {
+    openBrowser(url);
+  }
+
+  return {
+    url,
+    port,
+    close: async () => {
+      oauthServer?.close();
+      oauthBusy = false;
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    },
+  };
+}
+
+async function handleApi(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL,
+  root: string,
+): Promise<void> {
   const path = url.pathname;
+  const envPath = resolveUserEnvPath();
+  const packaged = isPackagedInstall();
 
   if (req.method === "GET" && path === "/api/status") {
-    const env = parseEnvFile(join(ROOT, ".env"));
+    const env = parseEnvFile(envPath);
     const node = nodeReady();
     const accounts = await listAccountsSafe();
+    const depsOk = depsInstalled(root);
+    const builtOk = distBuilt(root);
     sendJson(res, 200, {
       node,
-      depsInstalled: depsInstalled(),
-      distBuilt: distBuilt(),
+      depsInstalled: depsOk,
+      distBuilt: builtOk,
+      packaged,
       hasEnv: Boolean(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET),
       clientIdPreview: env.GOOGLE_OAUTH_CLIENT_ID
         ? `${env.GOOGLE_OAUTH_CLIENT_ID.slice(0, 18)}…`
@@ -401,16 +543,19 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
       accounts,
       oauthBusy,
       platform: process.platform,
-      repoRoot: ROOT,
-      distPath: join(ROOT, "dist", "index.js"),
+      repoRoot: root,
+      userConfigDir: resolveUserConfigDir(),
+      envPath,
+      distPath: mcpDistIndex(root),
+      bundledNode: resolveBundledNodePath(),
       cursorConfigPaths: cursorConfigPaths(),
-      version: readPackageVersion(),
+      version: readPackageVersion(root),
     });
     return;
   }
 
   if (req.method === "POST" && path === "/api/install") {
-    const result = await runInstall();
+    const result = await runInstall(root);
     sendJson(res, result.ok ? 200 : 500, result);
     return;
   }
@@ -435,7 +580,7 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
       GOOGLE_OAUTH_CLIENT_SECRET: clientSecret,
       GOOGLE_OAUTH_REDIRECT_URI: OAUTH_REDIRECT,
     });
-    sendJson(res, 200, { ok: true, redirectUri: OAUTH_REDIRECT });
+    sendJson(res, 200, { ok: true, redirectUri: OAUTH_REDIRECT, envPath });
     return;
   }
 
@@ -461,23 +606,34 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
   }
 
   if (req.method === "GET" && path === "/api/cursor-config") {
-    const env = parseEnvFile(join(ROOT, ".env"));
-    const distPath = join(ROOT, "dist", "index.js");
     sendJson(res, 200, {
-      snippet: cursorMcpSnippet(distPath, env),
+      snippet: cursorMcpSnippet(root, envPath),
       paths: cursorConfigPaths(),
-      distPath,
+      distPath: mcpDistIndex(root),
+      nodeCommand: resolveNodeCommand(root),
+      envPath,
     });
     return;
   }
 
   if (req.method === "POST" && path === "/api/write-cursor-config") {
-    if (!distBuilt()) {
-      sendJson(res, 400, { ok: false, error: "Build the project first (Install step)." });
+    if (!distBuilt(root)) {
+      sendJson(res, 400, {
+        ok: false,
+        error: packaged
+          ? "Installer is missing the MCP server files. Re-download the app from GitHub Releases."
+          : "Build the project first (Install step).",
+      });
       return;
     }
-    const env = parseEnvFile(join(ROOT, ".env"));
-    const distPath = join(ROOT, "dist", "index.js");
+    if (!existsSync(envPath)) {
+      sendJson(res, 400, {
+        ok: false,
+        error: "Save your Google keys first so Cursor can load them.",
+      });
+      return;
+    }
+
     const target = cursorConfigPaths()[0];
     mkdirSync(dirname(target), { recursive: true });
 
@@ -497,12 +653,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
       mcpServers: {
         ...(existing.mcpServers ?? {}),
         "google-workspace": {
-          command: "node",
-          args: [distPath],
+          command: resolveNodeCommand(root),
+          args: [mcpDistIndex(root)],
           env: {
-            GOOGLE_OAUTH_CLIENT_ID: env.GOOGLE_OAUTH_CLIENT_ID ?? "",
-            GOOGLE_OAUTH_CLIENT_SECRET: env.GOOGLE_OAUTH_CLIENT_SECRET ?? "",
-            GOOGLE_OAUTH_REDIRECT_URI: env.GOOGLE_OAUTH_REDIRECT_URI ?? OAUTH_REDIRECT,
+            GOOGLE_MCP_ENV_FILE: envPath,
+            GOOGLE_MCP_APP_ROOT: root,
           },
         },
       },
@@ -516,52 +671,27 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL): P
   sendJson(res, 404, { error: "Not found" });
 }
 
-function readPackageVersion(): string {
+function isDirectRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
   try {
-    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
-      version?: string;
-    };
-    return pkg.version ?? "0.0.0";
+    return import.meta.url === pathToFileURL(entry).href;
   } catch {
-    return "0.0.0";
+    return false;
   }
 }
 
-function serveStatic(res: ServerResponse, urlPath: string): void {
-  const relative = urlPath === "/" ? "/index.html" : urlPath;
-  const safe = join(PUBLIC, relative.replace(/^\/+/, ""));
-  if (!safe.startsWith(PUBLIC) || !existsSync(safe)) {
-    sendText(res, 404, "Not found", "text/plain");
-    return;
-  }
-  sendText(res, 200, readFileSync(safe, "utf8"), contentTypeFor(safe));
+if (isDirectRun()) {
+  const openBrowser =
+    process.env.SETUP_WIZARD_NO_BROWSER !== "1" &&
+    process.env.SETUP_WIZARD_NO_BROWSER !== "true";
+  startWizardServer({ openBrowser }).catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+
+  process.on("SIGINT", () => {
+    oauthServer?.close();
+    process.exit(0);
+  });
 }
-
-const server = createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url ?? "/", `http://127.0.0.1:${WIZARD_PORT}`);
-    if (url.pathname.startsWith("/api/")) {
-      await handleApi(req, res, url);
-      return;
-    }
-    serveStatic(res, url.pathname);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    sendJson(res, 500, { error: message });
-  }
-});
-
-server.listen(WIZARD_PORT, "127.0.0.1", () => {
-  const url = `http://127.0.0.1:${WIZARD_PORT}`;
-  console.log("\nGoogle Workspace MCP — Setup Wizard\n");
-  console.log(`Open: ${url}\n`);
-  console.log("Keep this window open while you use the wizard.");
-  console.log("Press Ctrl+C when you are finished.\n");
-  openBrowser(url);
-});
-
-process.on("SIGINT", () => {
-  oauthServer?.close();
-  server.close();
-  process.exit(0);
-});

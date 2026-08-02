@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-08-01
+
+### Added
+
+- **Desktop installers** (no npm / no separate Node.js):
+  - macOS `.dmg` — *Google Workspace MCP Setup*
+  - Windows NSIS `.exe`
+  - Bundles a portable Node.js runtime + MCP server for Cursor
+  - In-app Setup Wizard (Electron) teaches Google Cloud OAuth and writes `~/.cursor/mcp.json`
+- Secrets for installer users live under `~/.config/google-workspace-mcp/.env` (outside the app bundle)
+- Build scripts: `npm run desktop:dist:mac` / `desktop:dist:win`
+
+### Changed
+
+- README leads with installer download from GitHub Releases
+
 ## [1.2.0] — 2026-08-01
 
 ### Added
@@ -41,6 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial public release: Gmail, Calendar, and Tasks MCP tools
 - Local authorize script and optional Fly.io HTTP MCP endpoint
 
+[1.3.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/brandmathco/google-workspace-mcp/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/brandmathco/google-workspace-mcp/releases/tag/v1.0.0

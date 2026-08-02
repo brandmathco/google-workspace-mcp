@@ -1,5 +1,9 @@
 node_modules/
 dist/
+dist-installers/
+packaging/
+desktop/dist/
+desktop/node_modules/
 .env
 .env.*
 !.env.example
