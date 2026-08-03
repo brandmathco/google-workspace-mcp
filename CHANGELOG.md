@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spend-safety rails:** creates always `PAUSED`, mutating tools `dryRun` default `true`, daily budget cap (`GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS`, default $25/day), `ENABLED` requires `GOOGLE_ADS_ALLOW_ENABLE=true` + `confirmSpend: "ENABLE_SPEND"`
 - OAuth scope `https://www.googleapis.com/auth/adwords` (re-authorize all accounts after upgrade)
 - Docs: `docs/ADS_SAFETY.md`, Ads section in `docs/USE_CASES.md`, Fly secrets notes in `docs/DEPLOY_FLY.md`
+- Setup Wizard: optional Google Ads API enable + developer token / MCC fields; Fly deploy sets Ads secrets with `GOOGLE_ADS_ALLOW_ENABLE=false`
+- README **Public repository safety** section (what must never be committed)
 
 ### Changed
 

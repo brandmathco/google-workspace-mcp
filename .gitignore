@@ -19,4 +19,7 @@ scripts/authorize-credentials.json
 .cursor/
 *.pem
 *.p12
+*.key
+google-ads.yaml
+google-ads.yml
 desktop/assets/AppIcon.iconset/

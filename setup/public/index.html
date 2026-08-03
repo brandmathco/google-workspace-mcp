@@ -37,8 +37,9 @@
         <p class="eyebrow">BrandMatchGrowth · Google Workspace MCP</p>
         <h1>Setup Wizard</h1>
         <p class="lede">
-          We’ll walk you through Cursor, Google Cloud, Supabase (multi-account), optional Fly.io
-          cloud deploy, and connecting your inboxes — with buttons that open the right pages.
+          We’ll walk you through Cursor, Google Cloud, Supabase (multi-account), optional Google Ads,
+          optional Fly.io cloud deploy, and connecting your accounts — with buttons that open the
+          right pages. Secrets stay on this computer (or Fly secrets) — never in the public GitHub repo.
         </p>
         <p class="meta" id="versionLine">Checking your computer…</p>
       </header>
@@ -60,13 +61,13 @@
           <p>
             <strong>Cursor</strong> is an AI code editor (like VS Code, but with a built-in AI
             chat). This MCP server lets that AI
-            <em>actually use</em> your Gmail, Google Calendar, and Google Tasks — search mail,
-            draft replies, create events, and more.
+            <em>actually use</em> your Gmail, Google Calendar, Google Tasks, and (optionally)
+            spend-safe Google Ads — search mail, draft replies, create events, and draft paused ads.
           </p>
           <ul class="guide" style="list-style: disc">
             <li>You chat in plain English inside Cursor</li>
             <li>Cursor calls tools from this app (securely, with your Google login)</li>
-            <li>You stay in control — review drafts before sending</li>
+            <li>You stay in control — review drafts before sending mail or enabling ad spend</li>
           </ul>
           <div class="actions">
             <button type="button" class="btn primary" data-open="https://cursor.com/download">
@@ -120,7 +121,11 @@
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail API</button>
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com">Calendar API</button>
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tasks.googleapis.com">Tasks API</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/googleads.googleapis.com">Google Ads API</button>
               </div>
+              <p class="fineprint">
+                Google Ads is optional. Skip it if you only need mail / calendar / tasks.
+              </p>
             </li>
             <li>
               <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/credentials/consent">
@@ -155,6 +160,48 @@
               <input id="clientSecret" type="password" autocomplete="off" spellcheck="false" required
                 placeholder="GOCSPX-…" />
             </label>
+
+            <h3 class="subhead">Optional — Google Ads (spend-safe)</h3>
+            <p class="fineprint">
+              Ads tools create campaigns as <strong>PAUSED</strong> with dry-run by default.
+              Never paste developer tokens into GitHub or public chat. Leave blank to skip Ads.
+            </p>
+            <ol class="guide">
+              <li>
+                <button type="button" class="btn tiny" data-open="https://ads.google.com/aw/apicenter">
+                  Open: Google Ads API Center
+                </button>
+                Apply for / copy your <strong>developer token</strong> (manager account).
+              </li>
+              <li>
+                After saving keys, connect accounts again so Google consent includes Ads access.
+              </li>
+            </ol>
+            <label>
+              Ads developer token (optional)
+              <input id="adsDeveloperToken" type="password" autocomplete="off" spellcheck="false"
+                placeholder="Leave blank to skip Google Ads" />
+            </label>
+            <label>
+              Ads login customer ID / MCC (optional)
+              <input id="adsLoginCustomerId" autocomplete="off" spellcheck="false"
+                placeholder="Manager account digits, e.g. 1234567890" />
+            </label>
+            <label>
+              Default Ads customer ID (optional)
+              <input id="adsDefaultCustomerId" autocomplete="off" spellcheck="false"
+                placeholder="Client account digits" />
+            </label>
+            <label>
+              Max daily budget micros (default 25000000 = $25/day)
+              <input id="adsMaxDailyBudgetMicros" autocomplete="off" spellcheck="false"
+                placeholder="25000000" />
+            </label>
+            <p class="fineprint">
+              Enabling live spend stays <strong>off</strong> (<code>GOOGLE_ADS_ALLOW_ENABLE=false</code>).
+              Turn it on only manually when a human is ready — never for unattended Cloud agents.
+            </p>
+
             <p class="hint" id="envHint"></p>
             <div class="actions">
               <button type="submit" class="btn primary">Save Google keys</button>
@@ -222,8 +269,10 @@
         <section class="panel" id="panel-5">
           <h2>Connect Google account(s)</h2>
           <p>
-            Sign in with Google and approve Gmail / Calendar / Tasks. Repeat for every inbox.
-            Accounts stack — nothing is overwritten.
+            Sign in with Google and approve Gmail / Calendar / Tasks
+            <strong>(and Google Ads if you saved a developer token)</strong>. Repeat for every
+            account. Accounts stack — nothing is overwritten. Re-authorize after adding Ads so the
+            new scope is granted.
           </p>
           <label class="inline">
             Optional label
@@ -295,8 +344,23 @@
               Supabase service_role key
               <input id="flySupabaseKey" type="password" autocomplete="off" spellcheck="false" />
             </label>
+            <label>
+              Ads developer token (optional — for remote Ads tools)
+              <input id="flyAdsDeveloperToken" type="password" autocomplete="off" spellcheck="false"
+                placeholder="Uses saved token from step 3 if blank" />
+            </label>
+            <label>
+              Ads login customer ID / MCC (optional)
+              <input id="flyAdsLoginCustomerId" autocomplete="off" spellcheck="false" />
+            </label>
+            <label>
+              Default Ads customer ID (optional)
+              <input id="flyAdsDefaultCustomerId" autocomplete="off" spellcheck="false" />
+            </label>
             <p class="fineprint">
               MCP API key, authorize hash, and encryption key are auto-generated if left blank.
+              Fly always sets <code>GOOGLE_ADS_ALLOW_ENABLE=false</code> so Cloud agents cannot turn
+              on ad spend. Secrets go to Fly only — never into the public repo.
             </p>
             <div class="actions">
               <button type="submit" class="btn primary" id="btnFlyDeploy">
@@ -355,8 +419,13 @@
               Settings → MCP → confirm <code>google-workspace</code> (or remote) shows tools.
             </li>
             <li>
-              Try: <em>“List my unread Gmail from the last 24 hours”</em> or
-              <em>“List authorized Google accounts”</em>.
+              Try: <em>“List my unread Gmail from the last 24 hours”</em>,
+              <em>“List authorized Google accounts”</em>, or (if Ads is configured)
+              <em>“List my accessible Google Ads customers — read only”</em>.
+            </li>
+            <li>
+              Ads creates stay <strong>paused</strong> with dry-run by default — see the spend-safe
+              docs in the repo before enabling anything.
             </li>
           </ol>
           <p class="fineprint">

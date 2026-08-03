@@ -187,6 +187,20 @@ function writeEnvFile(values: Record<string, string>): void {
   if (merged.MCP_API_KEY) {
     lines.push(`MCP_API_KEY=${merged.MCP_API_KEY}`);
   }
+  if (merged.GOOGLE_ADS_DEVELOPER_TOKEN) {
+    lines.push(`GOOGLE_ADS_DEVELOPER_TOKEN=${merged.GOOGLE_ADS_DEVELOPER_TOKEN}`);
+  }
+  if (merged.GOOGLE_ADS_LOGIN_CUSTOMER_ID) {
+    lines.push(`GOOGLE_ADS_LOGIN_CUSTOMER_ID=${merged.GOOGLE_ADS_LOGIN_CUSTOMER_ID}`);
+  }
+  if (merged.GOOGLE_ADS_DEFAULT_CUSTOMER_ID) {
+    lines.push(`GOOGLE_ADS_DEFAULT_CUSTOMER_ID=${merged.GOOGLE_ADS_DEFAULT_CUSTOMER_ID}`);
+  }
+  lines.push(
+    `GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS=${merged.GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS ?? "25000000"}`,
+  );
+  // Wizard never enables live ad spend — keep Cloud / local defaults safe.
+  lines.push(`GOOGLE_ADS_ALLOW_ENABLE=${merged.GOOGLE_ADS_ALLOW_ENABLE ?? "false"}`);
   lines.push("");
 
   writeFileSync(envPath, lines.join("\n"), "utf8");
@@ -606,6 +620,7 @@ async function handleApi(
       GOOGLE_OAUTH_CLIENT_ID: clientId,
       GOOGLE_OAUTH_CLIENT_SECRET: clientSecret,
       GOOGLE_OAUTH_REDIRECT_URI: OAUTH_REDIRECT,
+      GOOGLE_ADS_ALLOW_ENABLE: "false",
     };
     if (typeof body.supabaseUrl === "string" && body.supabaseUrl.trim()) {
       patch.SUPABASE_URL = body.supabaseUrl.trim();
@@ -618,6 +633,28 @@ async function handleApi(
       patch.GOOGLE_TOKEN_ENCRYPTION_KEY = body.tokenEncryptionKey.trim();
     } else if (patch.SUPABASE_URL && !parseEnvFile(envPath).GOOGLE_TOKEN_ENCRYPTION_KEY) {
       patch.GOOGLE_TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("hex");
+    }
+    if (typeof body.adsDeveloperToken === "string" && body.adsDeveloperToken.trim()) {
+      patch.GOOGLE_ADS_DEVELOPER_TOKEN = body.adsDeveloperToken.trim();
+    }
+    if (typeof body.adsLoginCustomerId === "string" && body.adsLoginCustomerId.trim()) {
+      patch.GOOGLE_ADS_LOGIN_CUSTOMER_ID = body.adsLoginCustomerId.replace(/-/g, "").trim();
+    }
+    if (typeof body.adsDefaultCustomerId === "string" && body.adsDefaultCustomerId.trim()) {
+      patch.GOOGLE_ADS_DEFAULT_CUSTOMER_ID = body.adsDefaultCustomerId.replace(/-/g, "").trim();
+    }
+    if (typeof body.adsMaxDailyBudgetMicros === "string" && body.adsMaxDailyBudgetMicros.trim()) {
+      const micros = body.adsMaxDailyBudgetMicros.trim();
+      if (!/^\d+$/.test(micros)) {
+        sendJson(res, 400, {
+          ok: false,
+          error: "Max daily budget micros must be a positive integer (e.g. 25000000).",
+        });
+        return;
+      }
+      patch.GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS = micros;
+    } else if (!parseEnvFile(envPath).GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS) {
+      patch.GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS = "25000000";
     }
     writeEnvFile(patch);
     sendJson(res, 200, { ok: true, redirectUri: OAUTH_REDIRECT, envPath });
@@ -667,6 +704,8 @@ async function handleApi(
     const target = String(body.url ?? "").trim();
     const allowedPrefixes = [
       "https://console.cloud.google.com/",
+      "https://ads.google.com/",
+      "https://developers.google.com/google-ads/",
       "https://supabase.com/",
       "https://app.supabase.com/",
       "https://cursor.com/",
@@ -723,6 +762,23 @@ async function handleApi(
   if (req.method === "POST" && path === "/api/fly/deploy") {
     const body = await readJson(req);
     const env = parseEnvFile(envPath);
+    const adsDeveloperToken = String(
+      body.adsDeveloperToken ?? env.GOOGLE_ADS_DEVELOPER_TOKEN ?? "",
+    ).trim();
+    const adsLoginCustomerId = String(
+      body.adsLoginCustomerId ?? env.GOOGLE_ADS_LOGIN_CUSTOMER_ID ?? "",
+    )
+      .replace(/-/g, "")
+      .trim();
+    const adsDefaultCustomerId = String(
+      body.adsDefaultCustomerId ?? env.GOOGLE_ADS_DEFAULT_CUSTOMER_ID ?? "",
+    )
+      .replace(/-/g, "")
+      .trim();
+    const adsMaxDailyBudgetMicros = String(
+      body.adsMaxDailyBudgetMicros ?? env.GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS ?? "25000000",
+    ).trim();
+
     const result = deployToFly(root, {
       appName: String(body.appName ?? "").trim(),
       region: String(body.region ?? "yyz").trim() || "yyz",
@@ -743,10 +799,14 @@ async function handleApi(
         typeof body.tokenEncryptionKey === "string"
           ? body.tokenEncryptionKey
           : env.GOOGLE_TOKEN_ENCRYPTION_KEY,
+      adsDeveloperToken: adsDeveloperToken || undefined,
+      adsLoginCustomerId: adsLoginCustomerId || undefined,
+      adsDefaultCustomerId: adsDefaultCustomerId || undefined,
+      adsMaxDailyBudgetMicros: adsMaxDailyBudgetMicros || undefined,
     });
     if (result.ok && result.redirectUri) {
       // Keep local env in sync with remote Google redirect for future edits
-      writeEnvFile({
+      const sync: Record<string, string> = {
         GOOGLE_OAUTH_CLIENT_ID: String(
           body.googleClientId ?? env.GOOGLE_OAUTH_CLIENT_ID ?? "",
         ).trim(),
@@ -758,7 +818,13 @@ async function handleApi(
           body.supabaseServiceRoleKey ?? env.SUPABASE_SERVICE_ROLE_KEY ?? "",
         ).trim(),
         GOOGLE_ACCOUNTS_STORE: "supabase",
-      });
+        GOOGLE_ADS_ALLOW_ENABLE: "false",
+        GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS: adsMaxDailyBudgetMicros || "25000000",
+      };
+      if (adsDeveloperToken) sync.GOOGLE_ADS_DEVELOPER_TOKEN = adsDeveloperToken;
+      if (adsLoginCustomerId) sync.GOOGLE_ADS_LOGIN_CUSTOMER_ID = adsLoginCustomerId;
+      if (adsDefaultCustomerId) sync.GOOGLE_ADS_DEFAULT_CUSTOMER_ID = adsDefaultCustomerId;
+      writeEnvFile(sync);
     }
     sendJson(res, result.ok ? 200 : 500, result);
     return;

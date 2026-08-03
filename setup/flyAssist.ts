@@ -27,6 +27,11 @@ export interface FlyDeployInput {
   mcpApiKey?: string;
   authorizeHashKey?: string;
   tokenEncryptionKey?: string;
+  /** Optional Google Ads developer token — never commit; Fly secret only. */
+  adsDeveloperToken?: string;
+  adsLoginCustomerId?: string;
+  adsDefaultCustomerId?: string;
+  adsMaxDailyBudgetMicros?: string;
 }
 
 export interface FlyDeployResult {
@@ -339,7 +344,23 @@ export function deployToFly(appRoot: string, input: FlyDeployInput): FlyDeployRe
     `GOOGLE_TOKEN_ENCRYPTION_KEY=${tokenEncryptionKey}`,
     `MCP_API_KEY=${mcpApiKey}`,
     `AUTHORIZE_HASH_KEY=${authorizeHashKey}`,
+    // Spend-safe defaults for Cloud / remote MCP — wizard never enables live ads.
+    "GOOGLE_ADS_ALLOW_ENABLE=false",
+    `GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS=${input.adsMaxDailyBudgetMicros?.trim() || "25000000"}`,
   ];
+  if (input.adsDeveloperToken?.trim()) {
+    secretsArgs.push(`GOOGLE_ADS_DEVELOPER_TOKEN=${input.adsDeveloperToken.trim()}`);
+  }
+  if (input.adsLoginCustomerId?.trim()) {
+    secretsArgs.push(
+      `GOOGLE_ADS_LOGIN_CUSTOMER_ID=${input.adsLoginCustomerId.replace(/-/g, "").trim()}`,
+    );
+  }
+  if (input.adsDefaultCustomerId?.trim()) {
+    secretsArgs.push(
+      `GOOGLE_ADS_DEFAULT_CUSTOMER_ID=${input.adsDefaultCustomerId.replace(/-/g, "").trim()}`,
+    );
+  }
   const secrets = runFly(flyPath, secretsArgs, appRoot);
   logs.push(secrets.log);
   if (!secrets.ok) {

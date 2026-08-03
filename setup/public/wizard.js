@@ -211,11 +211,19 @@ $("envForm").addEventListener("submit", async (event) => {
       body: JSON.stringify({
         clientId: $("clientId").value.trim(),
         clientSecret: $("clientSecret").value.trim(),
+        adsDeveloperToken: $("adsDeveloperToken").value.trim() || undefined,
+        adsLoginCustomerId: $("adsLoginCustomerId").value.trim() || undefined,
+        adsDefaultCustomerId: $("adsDefaultCustomerId").value.trim() || undefined,
+        adsMaxDailyBudgetMicros: $("adsMaxDailyBudgetMicros").value.trim() || undefined,
       }),
     });
     $("clientSecret").value = "";
-    $("envHint").textContent = "Saved on this computer.";
+    $("adsDeveloperToken").value = "";
+    $("envHint").textContent =
+      "Saved on this computer only (never committed to GitHub). Re-authorize accounts if you added Ads.";
     $("flyClientId").value = $("clientId").value.trim();
+    $("flyAdsLoginCustomerId").value = $("adsLoginCustomerId").value.trim();
+    $("flyAdsDefaultCustomerId").value = $("adsDefaultCustomerId").value.trim();
     await refreshStatus();
     $("btnToStep4").disabled = false;
   } catch (error) {
@@ -342,8 +350,13 @@ $("flyForm").addEventListener("submit", async (event) => {
         supabaseUrl: $("flySupabaseUrl").value.trim() || $("supabaseUrl").value.trim(),
         supabaseServiceRoleKey:
           $("flySupabaseKey").value.trim() || $("supabaseServiceRoleKey").value.trim(),
+        adsDeveloperToken: $("flyAdsDeveloperToken").value.trim() || undefined,
+        adsLoginCustomerId: $("flyAdsLoginCustomerId").value.trim() || undefined,
+        adsDefaultCustomerId: $("flyAdsDefaultCustomerId").value.trim() || undefined,
+        adsMaxDailyBudgetMicros: $("adsMaxDailyBudgetMicros").value.trim() || undefined,
       }),
     });
+    $("flyAdsDeveloperToken").value = "";
     $("flyLog").textContent = result.log || "Done.";
     if (result.ok) {
       $("flySuccess").classList.remove("hidden");

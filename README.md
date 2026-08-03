@@ -19,6 +19,25 @@ Authorize **one or many** Google accounts. Tokens stay on your machine (or your 
 
 **Website:** [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) · **Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md) · **Fly deploy guide:** [docs/DEPLOY_FLY.md](./docs/DEPLOY_FLY.md)
 
+## Public repository safety
+
+This GitHub repo is **public**. It ships **code and templates only** — never your OAuth secrets, Ads developer token, Supabase keys, refresh tokens, or Fly app secrets.
+
+| Safe to publish (in this repo) | Never commit / never paste into issues |
+|--------------------------------|----------------------------------------|
+| Source, Setup Wizard UI, docs | `.env`, `.env.*` |
+| `.env.example`, `fly.toml.example` | Real `fly.toml` with your app name + secrets |
+| `cursor-mcp.example.json` | `~/.config/google-workspace-mcp/accounts.json` |
+| Example authorize target JSON | `scripts/authorize-credentials.json` (passwords) |
+| | `GOOGLE_ADS_DEVELOPER_TOKEN`, `MCP_API_KEY`, Supabase **service_role** |
+
+- Local Setup Wizard writes secrets to **`~/.config/google-workspace-mcp/.env`** (outside the git tree).
+- Fly deploy uses **`fly secrets set`** — secrets are not baked into the Docker image or this repo.
+- Ads: keep **`GOOGLE_ADS_ALLOW_ENABLE=false`** on Fly so Cloud agents cannot enable spend.
+- If a secret was ever exposed, **rotate it** in Google Cloud / Ads / Supabase / Fly immediately.
+
+Full checklist: **[SECURITY.md](./SECURITY.md)**.
+
 ![Inbox automation example — triage unread mail, apply labels, draft replies](docs/screenshots/05-inbox-automation-example.png)
 
 ## Easy setup (no coding / no npm)
@@ -387,7 +406,7 @@ Password-based automation (`authorize:all:auto`) is optional and **not** require
 
 ## Versioning & releases
 
-- SemVer in `package.json` (`1.5.0`, …)
+- SemVer in `package.json` (`1.6.0`, …)
 - Human-readable notes in [CHANGELOG.md](./CHANGELOG.md)
 - GitHub Releases (includes `.dmg` / Windows installers): [brandmathco/google-workspace-mcp/releases](https://github.com/brandmathco/google-workspace-mcp/releases)
 
@@ -400,14 +419,16 @@ npm run desktop:dist:win    # → dist-installers/*Setup*.exe
 
 ## Security notes
 
-See **[SECURITY.md](./SECURITY.md)** for the full “never commit” list.
+See **[SECURITY.md](./SECURITY.md)** and **[Public repository safety](#public-repository-safety)** above.
 
-- **Never commit** `.env`, `accounts.json`, `token.json`, or `scripts/authorize-credentials.json`.
+- **Never commit** `.env`, `accounts.json`, `token.json`, `scripts/authorize-credentials.json`, or a real `fly.toml`.
+- **Never commit** `GOOGLE_ADS_DEVELOPER_TOKEN` or set `GOOGLE_ADS_ALLOW_ENABLE=true` in committed examples.
 - `MCP_API_KEY` protects the remote `/mcp` endpoint; generate a strong random value.
 - `AUTHORIZE_HASH_KEY` protects `/authorize`; required for both local `npm run authorize` and remote OAuth.
 - OAuth refresh tokens are stored locally at `~/.config/google-workspace-mcp/accounts.json` by default (or encrypted in your Supabase project when configured).
 - This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`) plus Calendar, Tasks, and Google Ads (`adwords`). Use a dedicated Google account or review scopes before connecting production mail/ads. Ads creates stay paused; see [docs/ADS_SAFETY.md](./docs/ADS_SAFETY.md).
 - **Review AI-drafted replies** before sending to clients.
+- Setup Wizard: Ads developer token fields are optional; enabling live spend is never turned on by the wizard.
 
 ## About BrandMatchGrowth
 
