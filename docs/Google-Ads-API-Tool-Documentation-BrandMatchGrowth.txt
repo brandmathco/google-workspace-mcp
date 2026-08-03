@@ -1,0 +1,201 @@
+Google Ads API - Tool Design Document
+
+Tool name: Google Workspace MCP (BrandMatchGrowth)
+Company: BrandMatchGrowth (BrandMatchCo)
+Company URL: https://www.brandmatchgrowth.com/
+Public product / source: https://github.com/brandmathco/google-workspace-mcp
+Document purpose: Google Ads API developer token application (Basic Access)
+Document date: August 2026
+Contact: mamadou@brandmatchco.com / support@brandmatchco.com
+
+================================================================================
+1. Executive summary
+================================================================================
+
+Google Workspace MCP is an internal and customer-installable Model Context Protocol (MCP) server that lets authorized users operate Gmail, Google Calendar, Google Tasks, and a limited, spend-safe subset of Google Ads from AI assistants such as Cursor.
+
+The Google Ads portion is not a full-service campaign management UI for third-party agencies. It is a specialized automation bridge used by BrandMatchGrowth (and self-hosted installers) to:
+
+- Discover accessible Google Ads customers
+- Report on campaigns (status, budgets, recent cost metrics)
+- Draft PAUSED Demand Gen video ads (from an existing YouTube video ID)
+- Draft PAUSED Responsive Search Ads
+- Upload image assets (logos / marketing images)
+- Optionally update campaign budgets within a hard daily cap
+- Optionally enable a campaign only after explicit dual human confirmation
+
+We are applying for Basic Access so production Google Ads accounts owned or managed by BrandMatchGrowth (and accounts that authorized users explicitly connect via OAuth) can be read and mutated under the controls described below. Expected daily API volume is well under the Basic Access 15,000 operations/day threshold.
+
+================================================================================
+2. Company and product
+================================================================================
+
+- Company: BrandMatchGrowth - performance marketing and product infrastructure agency
+- Website: https://www.brandmatchgrowth.com/
+- Tool distribution: open-source GitHub repository plus macOS/Windows Setup installers from GitHub Releases
+- Primary users: BrandMatchGrowth operators and technical users who self-host the MCP against their own Google Cloud OAuth client and developer token
+- Related marketing use case: drafting paused YouTube / Demand Gen creatives for products such as OpenSign (POS / retail), with landing pages on brandmatchgrowth.com
+
+================================================================================
+3. Intended Google Ads API use (permissible use)
+================================================================================
+
+Requested permissible use: Ad creation / management and reporting.
+
+Concrete API capabilities exposed by the tool:
+
+- List accessible customers (CustomerService.ListAccessibleCustomers)
+- List / get campaigns with budget and recent metrics (GoogleAdsService.Search)
+- Read-only GAQL search (GoogleAdsService.Search); mutations via search are rejected
+- Create PAUSED Demand Gen campaigns with YouTube video responsive ads (budget, campaign, ad group, video asset, ad)
+- Create PAUSED Responsive Search Ads (attach to existing ad group, or create PAUSED Search campaign + budget + ad group)
+- Upload image assets for logos / marketing images (AssetService)
+- Update campaign budget amounts within a hard daily-budget cap
+- Set campaign status to PAUSED or REMOVED; ENABLED only with dual confirmation (see section 6)
+
+Out of scope for this tool today:
+
+- Keyword planner bulk research UIs
+- Full Required Minimum Functionality (RMF) agency console
+- Billing changes and account creation
+- Raw video upload to YouTube (operator must supply an existing YouTube video ID)
+- Unattended cloud automation that enables spend
+
+================================================================================
+4. Architecture
+================================================================================
+
+4.1 Components
+
+- MCP server (Node.js / TypeScript) - exposes typed tools to the AI host over stdio or authenticated HTTP
+- Google OAuth 2.0 - user-granted refresh tokens with scope https://www.googleapis.com/auth/adwords (plus Gmail / Calendar / Tasks scopes for other modules)
+- Google Ads API client - Opteo google-ads-api (MIT license) using developer token + OAuth access token; optional login-customer-id for manager (MCC) accounts
+- Token storage - local filesystem (~/.config/google-workspace-mcp/) or optional Supabase-backed store for multi-account remote deploy. Secrets are never bundled in the public repository.
+- Optional Fly.io HTTP deploy - remote MCP for Cursor Cloud; Ads enable-spend flag remains false on unattended hosts
+
+4.2 High-level data flow
+
+1. User installs MCP and completes OAuth for their Google account(s).
+2. Operator sets GOOGLE_ADS_DEVELOPER_TOKEN (and optional default / MCC customer IDs) as environment secrets.
+3. AI assistant calls a read tool (list customers / campaigns) or a mutating tool with dryRun=true (default).
+4. On human approval, the same tool is called with dryRun=false; creates always leave entities PAUSED.
+5. Enabling a campaign requires host env GOOGLE_ADS_ALLOW_ENABLE=true AND confirmSpend="ENABLE_SPEND".
+
+4.3 Authentication model
+
+- End users authenticate with Google OAuth 2.0; BrandMatchGrowth does not receive Google passwords.
+- Each Google Ads API call sends the developer token and the user's OAuth bearer token.
+- Remote HTTP MCP requires a Bearer MCP_API_KEY; Ads secrets stay server-side.
+- Users only access Google Ads customers their Google account can already access.
+
+================================================================================
+5. Feature inventory (Ads tools)
+================================================================================
+
+ads_list_accessible_customers
+Mode: Read
+Notes: List customer IDs accessible to the authorized account.
+
+ads_list_campaigns
+Mode: Read
+Notes: List campaigns (status, channel, budget, cost). Prefer before any create / enable.
+
+ads_get_campaign
+Mode: Read
+Notes: Fetch one campaign with budget and recent metrics.
+
+ads_search
+Mode: Read
+Notes: Run GAQL SELECT only (max 100 rows). Rejects mutate queries.
+
+ads_create_demand_gen_video_campaign
+Mode: Create (PAUSED)
+Notes: Demand Gen + YouTube video ad. dryRun defaults to true. Daily budget capped. Requires YouTube video ID and (when applying) logo asset resource name from ads_upload_image_asset.
+
+ads_create_responsive_search_ad
+Mode: Create (PAUSED)
+Notes: RSA on existing ad group, or new PAUSED Search campaign + budget + ad group when createCampaign=true. dryRun defaults to true.
+
+ads_upload_image_asset
+Mode: Create
+Notes: Upload logo / marketing image from HTTPS URL or base64. dryRun defaults to true.
+
+ads_update_campaign_budget
+Mode: Update
+Notes: Change daily budget micros within GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS (default $25/day). dryRun defaults to true.
+
+ads_set_campaign_status
+Mode: Update
+Notes: PAUSED / REMOVED always allowed. ENABLED requires GOOGLE_ADS_ALLOW_ENABLE=true AND confirmSpend="ENABLE_SPEND". dryRun defaults to true. Automations must never enable spend.
+
+================================================================================
+6. Spend-safety and compliance controls
+================================================================================
+
+These controls are product requirements, not optional tips:
+
+- Mutating Ads tools default dryRun=true; no write until an explicit dryRun=false after human review.
+- All campaign / ad creates leave entities in PAUSED status - creating never starts spend by itself.
+- Daily budgets cannot exceed GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS (default 25,000,000 micros = $25/day).
+- ads_set_campaign_status ENABLED requires GOOGLE_ADS_ALLOW_ENABLE=true and confirmSpend="ENABLE_SPEND".
+- Unattended / Cloud automations are instructed to list + dry-run + notify only; enable flag stays false on Fly.
+- Optional idempotencyKey on creates reduces duplicate campaign names on retries.
+- Public documentation: docs/ADS_SAFETY.md and docs/USE_CASES.md in the GitHub repository.
+
+================================================================================
+7. Required Minimum Functionality (RMF)
+================================================================================
+
+This tool is a specialized, limited-function Ads automation bridge (paused draft creation + reporting), not a full-service third-party Google Ads management console.
+
+We are applying for Basic Access (under 15,000 operations per day), which is exempt from RMF for tools that remain within Basic Access volume.
+
+If Google classifies the tool as requiring RMF for Standard Access later, we will either:
+
+(a) implement applicable RMF before requesting Standard Access, or
+(b) keep the tool internal / specialized and remain on Basic Access.
+
+================================================================================
+8. Users, access, and demo
+================================================================================
+
+- Internal: BrandMatchGrowth staff using Cursor + local or Fly-hosted MCP against our MCC / client accounts we manage.
+- External self-host: developers who clone or install the tool and supply their own Google Cloud OAuth client and developer token.
+- No public multi-tenant Ads SaaS UI is offered; there is no anonymous Ads API usage.
+- Demo for Google reviewers: upon request we can provide a recorded walkthrough and/or temporary read-only access instructions within seven days.
+- Screenshots of setup / inbox automation live under docs/screenshots/ in the GitHub repository.
+
+================================================================================
+9. Rate and volume expectations
+================================================================================
+
+- Typical usage: dozens to low hundreds of API operations per day during campaign drafting.
+- Peak expected: well below 1,000 operations/day; comfortably under Basic Access 15,000/day.
+- No bulk competitor scraping and no continuous high-frequency polling designed into the Ads tools.
+
+================================================================================
+10. Privacy and data handling
+================================================================================
+
+- OAuth tokens and Ads developer token are stored only in operator-controlled secrets (local config, Fly secrets, or operator Supabase).
+- The public GitHub repository ships code and templates only - never live credentials.
+- Ad creatives, customer IDs, and metrics returned by the API are processed in-memory for the assistant session; persistence is limited to what the host AI / operator chooses to save.
+- Canadian privacy expectations (PIPEDA): collect / process only account data needed to perform the requested Ads / Gmail / Calendar / Tasks action.
+
+================================================================================
+11. Roadmap (non-binding)
+================================================================================
+
+- Additional read-only reporting helpers as needed for BrandMatchGrowth operations.
+- Continue to refuse unattended spend enablement.
+- Any expansion of Ads surface area will be reflected in an updated design document / Google Ads API Tool Change Form if required.
+
+================================================================================
+12. Summary for reviewers
+================================================================================
+
+Google Workspace MCP by BrandMatchGrowth is a spend-safe Google Ads API client embedded in an MCP server. It authenticates via user OAuth, uses a company developer token, defaults all mutates to dry-run, creates only PAUSED entities, caps daily budgets, and gates ENABLE behind explicit dual confirmation.
+
+We request Basic Access with Ad creation / management and reporting permissible use for production accounts we own or that users authorize.
+
+-- End of document --

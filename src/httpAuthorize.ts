@@ -9,7 +9,10 @@ import {
   createOAuthClientForSetup,
   getAuthorizationUrl,
 } from "./auth/googleAuth.js";
-import { consumeOAuthState, createOAuthState } from "./auth/oauthStateStore.js";
+import {
+  consumeOAuthStateDetailed,
+  createOAuthState,
+} from "./auth/oauthStateStore.js";
 
 function sendAuthorizeDenied(res: Response, message: string): void {
   res.status(403).json({ error: message });
@@ -46,12 +49,8 @@ export function registerAuthorizeRoutes(app: Express): void {
       const oauth = createOAuthClientForSetup();
       const label = queryParam(req.query.label);
       const makeDefault = queryParam(req.query.default) === "1";
-      const statePayload = JSON.stringify({
-        nonce: createOAuthState(),
-        label,
-        makeDefault,
-      });
-      const state = Buffer.from(statePayload, "utf8").toString("base64url");
+      // Signed state survives Fly restarts; do not nest in a second encoding layer.
+      const state = createOAuthState({ label, makeDefault });
       const authUrl = getAuthorizationUrl(oauth, state);
       res.redirect(authUrl);
     } catch (error) {
@@ -62,36 +61,13 @@ export function registerAuthorizeRoutes(app: Express): void {
 
   app.get("/oauth2callback", async (req, res) => {
     const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
-    let label: string | undefined;
-    let makeDefault = false;
-
-    if (stateRaw) {
-      try {
-        const parsed = JSON.parse(
-          Buffer.from(stateRaw, "base64url").toString("utf8"),
-        ) as { nonce?: string; label?: string; makeDefault?: boolean };
-        if (!consumeOAuthState(parsed.nonce)) {
-          sendAuthorizeDenied(
-            res,
-            "Invalid or expired OAuth state. Start from /authorize with a valid hash key.",
-          );
-          return;
-        }
-        label = parsed.label;
-        makeDefault = parsed.makeDefault === true;
-      } catch {
-        if (!consumeOAuthState(stateRaw)) {
-          sendAuthorizeDenied(
-            res,
-            "Invalid or expired OAuth state. Start from /authorize with a valid hash key.",
-          );
-          return;
-        }
-      }
-    } else {
-      sendAuthorizeDenied(res, "Missing OAuth state.");
+    const consumed = consumeOAuthStateDetailed(stateRaw);
+    if (!consumed.ok) {
+      sendAuthorizeDenied(res, consumed.reason);
       return;
     }
+    const label = consumed.label;
+    const makeDefault = consumed.makeDefault;
 
     const error = typeof req.query.error === "string" ? req.query.error : undefined;
     if (error) {
