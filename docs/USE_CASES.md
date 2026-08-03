@@ -1,6 +1,8 @@
-# Use cases — automate Gmail, Calendar, and Tasks with AI
+# Use cases — automate Gmail, Calendar, Tasks, and Google Ads with AI
 
-These are example prompts you can run in **Cursor** (or any MCP client) after connecting this server. The AI calls the MCP tools on your behalf — always review before sending replies to clients.
+These are example prompts you can run in **Cursor** (or any MCP client) after connecting this server. The AI calls the MCP tools on your behalf — always review before sending replies to clients or enabling ads spend.
+
+**Google Ads:** see **[ADS_SAFETY.md](./ADS_SAFETY.md)** — creates stay PAUSED; dry-run defaults on; enable is double-gated.
 
 ## Inbox triage and labels
 
@@ -62,15 +64,40 @@ Gmail labels act like tags. The MCP can list labels (`gmail_list_labels`), then 
 
 > Give me a weekly briefing: unread count by label, calendar events Mon–Fri, open tasks overdue, and the top 5 emails I should handle first.
 
+## Google Ads (spend-safe)
+
+**Prerequisites:** `GOOGLE_ADS_DEVELOPER_TOKEN`, Google Ads API enabled, accounts re-authorized with the `adwords` scope. Upload video creatives to **YouTube** first (pass the video id).
+
+**Prompt (discover only):**
+
+> List my accessible Google Ads customers, then list campaigns on the default customer. Summarize names, status, daily budget, and cost. Do not create or enable anything.
+
+**Prompt (dry-run Demand Gen video — OpenSign-style):**
+
+> Using Google Ads tools only in dry-run mode: draft a PAUSED Demand Gen video campaign for customer `<CUSTOMER_ID>` named "OpenSign Demo — YouTube". Use YouTube video id `<YOUTUBE_VIDEO_ID>`, final URL `https://www.brandmatchgrowth.com/`, business name OpenSign, daily budget $15 (15000000 micros), three short headlines and two descriptions about white-label POS + inventory. Show me the full dry-run preview JSON. Do not set dryRun false. Do not enable the campaign.
+
+**Prompt (apply after approval):**
+
+> I approved the dry-run preview. Upload logo from `<LOGO_HTTPS_URL>` with dryRun false, then create the Demand Gen video campaign with dryRun false using that logo asset. Keep everything PAUSED. Do not call ads_set_campaign_status with ENABLED.
+
+**Prompt (enable — human only, never for unattended automation):**
+
+> Pause is confirmed in the Ads UI. With GOOGLE_ADS_ALLOW_ENABLE already true on this host, dry-run ads_set_campaign_status ENABLED for campaign `<ID>`, show me the preview, then after I say apply, call it with confirmSpend ENABLE_SPEND and dryRun false.
+
+**Automation tip:** Scheduled Cloud agents should only list + dry-run + email/Slack you the preview. Never set `GOOGLE_ADS_ALLOW_ENABLE=true` on unattended Fly secrets.
+
 ## Tips
 
 - **Start read-only:** Ask the AI to *list* and *summarize* before *move*, *reply*, or *create*.
 - **Use Gmail search syntax** in prompts: `from:`, `label:`, `is:unread`, `newer_than:2d`, `subject:invoice`.
 - **Label IDs:** Run `gmail_list_labels` once so the agent knows your exact label names (Gmail API uses IDs internally; the agent maps names).
 - **Remote / Cloud Cursor:** Deploy the HTTP server on Fly.io and use the `url` + `Authorization` MCP config so cloud agents can reach your mail stack securely.
+- **Ads budget:** Micros — `$1 = 1000000`. Default create/update cap is `$25/day`.
 
 ## What this MCP does *not* do (yet)
 
 - Create new Gmail labels via API in one click (Gmail API supports it, but this server exposes *move* to existing labels — ask the agent to list labels first or create labels manually in Gmail).
 - Send without your approval unless you explicitly instruct it to send drafted replies.
 - Replace proper email marketing or CRM tools — it's best for personal/team inbox automation with an AI assistant in the loop.
+- Upload raw video files to YouTube or Google Ads (pass an existing YouTube video id).
+- Auto-enable campaigns from Cloud Automations (by design — see ADS_SAFETY.md).

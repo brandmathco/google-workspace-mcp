@@ -11,9 +11,11 @@
   · performance marketing &amp; product infrastructure
 </p>
 
-An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (Cursor, Claude Desktop, etc.) to **Gmail**, **Google Calendar**, and **Google Tasks**.
+An [MCP](https://modelcontextprotocol.io/) server that connects AI assistants (Cursor, Claude Desktop, etc.) to **Gmail**, **Google Calendar**, **Google Tasks**, and **spend-safe Google Ads**.
 
 Authorize **one or many** Google accounts. Tokens stay on your machine (or your own Supabase project for remote deploy). This repository never ships secrets — you bring your own Google Cloud OAuth client.
+
+**Google Ads safety:** creates stay **PAUSED**, mutating tools **dry-run by default**, daily budgets are capped, and enabling spend requires an explicit env flag + confirmation string. See **[docs/ADS_SAFETY.md](./docs/ADS_SAFETY.md)**.
 
 **Website:** [brandmatchgrowth.com](https://www.brandmatchgrowth.com/) · **Current version:** see [CHANGELOG.md](./CHANGELOG.md) · **Security:** [SECURITY.md](./SECURITY.md) · **Fly deploy guide:** [docs/DEPLOY_FLY.md](./docs/DEPLOY_FLY.md)
 
@@ -65,6 +67,7 @@ Or double-click `Start Setup.command` (macOS) / `Start Setup.bat` (Windows) afte
 - **Calendar** — create events from “let’s meet” emails
 - **Tasks** — turn action items in mail into Google Tasks
 - **Daily/weekly briefings** — unread summary + calendar + open tasks
+- **Google Ads (paused drafts)** — Demand Gen video from a YouTube id, responsive search ads, image assets; enable spend only with human confirmation
 
 See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and business workflow templates.
 
@@ -84,8 +87,17 @@ See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and busi
 | `calendar_list_upcoming` | List upcoming events |
 | `tasks_create` | Create a Google Tasks item |
 | `tasks_list` | List open tasks |
+| `ads_list_accessible_customers` | List Ads customer IDs for the authorized account |
+| `ads_list_campaigns` | List campaigns (status, budget, cost) |
+| `ads_get_campaign` | Campaign + budget + metrics |
+| `ads_search` | Read-only GAQL (max 100 rows) |
+| `ads_create_demand_gen_video_campaign` | PAUSED Demand Gen + YouTube video ad (`dryRun` default true) |
+| `ads_create_responsive_search_ad` | PAUSED RSA (+ optional Search campaign) |
+| `ads_upload_image_asset` | Upload logo/image asset for Demand Gen |
+| `ads_set_campaign_status` | Pause always; ENABLE double-gated |
+| `ads_update_campaign_budget` | Update budget within env cap |
 
-All Gmail/Calendar/Tasks tools accept optional **`accountEmail`** (e.g. `you@gmail.com`) to target a specific authorized account. Omit it to use the default.
+All Gmail/Calendar/Tasks/Ads tools accept optional **`accountEmail`** (e.g. `you@gmail.com`) to target a specific authorized account. Omit it to use the default. Ads tools also accept **`customerId`** / **`loginCustomerId`**.
 
 ## Multi-account OAuth
 
@@ -128,7 +140,15 @@ Apply Supabase schema: `supabase/migrations/20260722000000_google_mcp_oauth_acco
    - Gmail API
    - Google Calendar API
    - Google Tasks API
+   - **Google Ads API** (for `ads_*` tools)
 3. **OAuth 2.0 Desktop client** credentials from [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+4. **Google Ads** (optional but required for ads tools):
+   - Developer token from [Google Ads API Center](https://ads.google.com/aw/apicenter) → set `GOOGLE_ADS_DEVELOPER_TOKEN`
+   - Optional MCC id → `GOOGLE_ADS_LOGIN_CUSTOMER_ID`
+   - **Re-authorize** every account after upgrading (new `adwords` OAuth scope)
+   - Keep `GOOGLE_ADS_ALLOW_ENABLE=false` unless a human is enabling spend on purpose
+
+Env template: [`.env.example`](./.env.example). Safety policy: [`docs/ADS_SAFETY.md`](./docs/ADS_SAFETY.md).
 
 ---
 
@@ -202,6 +222,12 @@ GOOGLE_OAUTH_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=your-client-secret
 GOOGLE_OAUTH_REDIRECT_URI=http://127.0.0.1:3847/oauth2callback
 AUTHORIZE_HASH_KEY=choose-a-long-random-string
+# Optional Google Ads (see docs/ADS_SAFETY.md)
+GOOGLE_ADS_DEVELOPER_TOKEN=
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=
+GOOGLE_ADS_DEFAULT_CUSTOMER_ID=
+GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS=25000000
+GOOGLE_ADS_ALLOW_ENABLE=false
 ```
 
 ### 3. Authorize Google access
@@ -211,10 +237,10 @@ npm run authorize -- --hash-key=choose-a-long-random-string
 ```
 
 1. Open the URL printed in your terminal.
-2. Sign in and approve (see screenshots above).
+2. Sign in and approve (see screenshots above). Consent includes Gmail, Calendar, Tasks, and Google Ads (`adwords`).
 3. Refresh tokens saved to `~/.config/google-workspace-mcp/accounts.json` (one entry per Google account).
 
-Repeat the authorize command for each Gmail account you need.
+Repeat the authorize command for each Google account you need. After upgrading to Ads support, **re-authorize** so refresh tokens pick up the new scope.
 
 ### 4. Add to Cursor
 
@@ -227,7 +253,9 @@ Repeat the authorize command for each Gmail account you need.
       "env": {
         "GOOGLE_OAUTH_CLIENT_ID": "your-client-id.apps.googleusercontent.com",
         "GOOGLE_OAUTH_CLIENT_SECRET": "your-client-secret",
-        "GOOGLE_OAUTH_REDIRECT_URI": "http://127.0.0.1:3847/oauth2callback"
+        "GOOGLE_OAUTH_REDIRECT_URI": "http://127.0.0.1:3847/oauth2callback",
+        "GOOGLE_ADS_DEVELOPER_TOKEN": "your-ads-developer-token",
+        "GOOGLE_ADS_ALLOW_ENABLE": "false"
       }
     }
   }
@@ -378,7 +406,7 @@ See **[SECURITY.md](./SECURITY.md)** for the full “never commit” list.
 - `MCP_API_KEY` protects the remote `/mcp` endpoint; generate a strong random value.
 - `AUTHORIZE_HASH_KEY` protects `/authorize`; required for both local `npm run authorize` and remote OAuth.
 - OAuth refresh tokens are stored locally at `~/.config/google-workspace-mcp/accounts.json` by default (or encrypted in your Supabase project when configured).
-- This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`). Use a dedicated Google account or review scopes before connecting production mail.
+- This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`) plus Calendar, Tasks, and Google Ads (`adwords`). Use a dedicated Google account or review scopes before connecting production mail/ads. Ads creates stay paused; see [docs/ADS_SAFETY.md](./docs/ADS_SAFETY.md).
 - **Review AI-drafted replies** before sending to clients.
 
 ## About BrandMatchGrowth

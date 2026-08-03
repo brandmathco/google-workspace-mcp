@@ -34,9 +34,16 @@ fly secrets set \
   SUPABASE_SERVICE_ROLE_KEY="..." \
   GOOGLE_TOKEN_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
   MCP_API_KEY="$(openssl rand -hex 24)" \
-  AUTHORIZE_HASH_KEY="$(openssl rand -hex 24)"
+  AUTHORIZE_HASH_KEY="$(openssl rand -hex 24)" \
+  GOOGLE_ADS_DEVELOPER_TOKEN="..." \
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID="..." \
+  GOOGLE_ADS_DEFAULT_CUSTOMER_ID="..." \
+  GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS="25000000" \
+  GOOGLE_ADS_ALLOW_ENABLE="false"
 fly deploy
 ```
+
+**Google Ads on Fly:** keep `GOOGLE_ADS_ALLOW_ENABLE=false` so Cloud Automations cannot turn campaigns on. Creates stay PAUSED; see [ADS_SAFETY.md](./ADS_SAFETY.md). After deploying a build that adds the `adwords` OAuth scope, re-authorize every account.
 
 Apply `supabase/migrations/20260722000000_google_mcp_oauth_accounts.sql` in the Supabase SQL editor before authorizing accounts.
 

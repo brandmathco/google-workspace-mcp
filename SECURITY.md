@@ -11,8 +11,12 @@
 | `scripts/authorize-credentials.json` | **Passwords** for optional auto-authorize — treat as highly sensitive |
 | `fly.toml` with real app names + any committed secrets | Prefer `fly secrets set` |
 | Supabase **service role** key | Full database access |
+| `GOOGLE_ADS_DEVELOPER_TOKEN` | Google Ads API access — set via env / `fly secrets`, never commit |
+| `GOOGLE_ADS_ALLOW_ENABLE=true` | Allows enabling campaigns (spend). Keep `false` on unattended hosts |
 
 Templates that **are** safe to publish: `.env.example`, `scripts/authorize-targets.example.json`, `scripts/authorize-credentials.example.json`, `fly.toml.example`, `cursor-mcp.example.json`.
+
+Ads spend policy: [`docs/ADS_SAFETY.md`](./docs/ADS_SAFETY.md).
 
 ## Safe public publish checklist
 

@@ -1,8 +1,8 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "type": "module",
-  "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, and Google Tasks — multi-account OAuth, Cursor-ready",
+  "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, Google Tasks, and spend-safe Google Ads — multi-account OAuth, Cursor-ready",
   "license": "MIT",
   "author": "BrandMatchGrowth <support@brandmatchco.com>",
   "repository": {
@@ -19,6 +19,7 @@
     "gmail",
     "google-calendar",
     "google-tasks",
+    "google-ads",
     "cursor",
     "ai",
     "multi-account",
@@ -66,6 +67,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "express": "^5.2.1",
+    "google-ads-api": "^24.1.0",
     "google-auth-library": "^9.14.0",
     "googleapis": "^144.0.0",
     "zod": "^3.24.2"

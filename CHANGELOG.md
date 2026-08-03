@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] — 2026-08-03
+
+### Added
+
+- **Google Ads API** tools (Opteo `google-ads-api`, MIT): list customers/campaigns, GAQL search, Demand Gen YouTube video campaigns, responsive search ads, image asset upload, campaign status + budget updates
+- **Spend-safety rails:** creates always `PAUSED`, mutating tools `dryRun` default `true`, daily budget cap (`GOOGLE_ADS_MAX_DAILY_BUDGET_MICROS`, default $25/day), `ENABLED` requires `GOOGLE_ADS_ALLOW_ENABLE=true` + `confirmSpend: "ENABLE_SPEND"`
+- OAuth scope `https://www.googleapis.com/auth/adwords` (re-authorize all accounts after upgrade)
+- Docs: `docs/ADS_SAFETY.md`, Ads section in `docs/USE_CASES.md`, Fly secrets notes in `docs/DEPLOY_FLY.md`
+
+### Changed
+
+- Shared OAuth scope constant exported as `GOOGLE_SCOPES` (`GMAIL_SCOPES` kept as alias)
+
 ## [1.5.0] — 2026-08-01
 
 ### Added
