@@ -626,6 +626,8 @@ export async function adsSetCampaignStatus(options: {
   campaignId?: string;
   status: CampaignStatusAction;
   confirmSpend?: string;
+  /** Must be GTM_OR_EQUIVALENT_VERIFIED when enabling spend. */
+  confirmMeasurement?: string;
   dryRun?: boolean;
 }) {
   const dryRun = resolveDryRun(options.dryRun);
@@ -633,7 +635,7 @@ export async function adsSetCampaignStatus(options: {
   const status = options.status;
 
   if (status === "ENABLED") {
-    assertCanEnableSpend(options.confirmSpend);
+    assertCanEnableSpend(options.confirmSpend, options.confirmMeasurement);
   }
   if (status !== "PAUSED" && status !== "ENABLED" && status !== "REMOVED") {
     const _exhaustive: never = status;

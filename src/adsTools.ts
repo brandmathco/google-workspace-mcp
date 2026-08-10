@@ -10,7 +10,10 @@ import {
   adsUpdateCampaignBudget,
   adsUploadImageAsset,
 } from "./services/ads.js";
-import { ENABLE_SPEND_CONFIRMATION } from "./services/adsSafety.js";
+import {
+  ENABLE_SPEND_CONFIRMATION,
+  MEASUREMENT_CONFIRMATION,
+} from "./services/adsSafety.js";
 
 const accountEmailProperty = {
   accountEmail: {
@@ -223,7 +226,7 @@ export const adsTools = [
   {
     name: "ads_set_campaign_status",
     description:
-      `Set campaign status. PAUSED/REMOVED always allowed. ENABLED requires GOOGLE_ADS_ALLOW_ENABLE=true AND confirmSpend: "${ENABLE_SPEND_CONFIRMATION}" after human review. dryRun defaults to true. Automations must never enable spend.`,
+      `Set campaign status. PAUSED/REMOVED always allowed. ENABLED requires GOOGLE_ADS_ALLOW_ENABLE=true, confirmSpend: "${ENABLE_SPEND_CONFIRMATION}", AND confirmMeasurement: "${MEASUREMENT_CONFIRMATION}" after verifying GTM (or gtag/GA4 + Ads conversion) on the landing URL. dryRun defaults to true. Automations must never enable spend.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -244,6 +247,10 @@ export const adsTools = [
         confirmSpend: {
           type: "string",
           description: `Must be "${ENABLE_SPEND_CONFIRMATION}" when status is ENABLED`,
+        },
+        confirmMeasurement: {
+          type: "string",
+          description: `Must be "${MEASUREMENT_CONFIRMATION}" when status is ENABLED (GTM or equivalent conversion tagging verified on landing URL)`,
         },
       },
       required: ["status"],
@@ -392,6 +399,7 @@ export async function handleAdsTool(
           campaignResourceName: z.string().optional(),
           status: z.enum(["PAUSED", "ENABLED", "REMOVED"]),
           confirmSpend: z.string().optional(),
+          confirmMeasurement: z.string().optional(),
         })
         .parse(args ?? {});
       return jsonResult(await adsSetCampaignStatus(input));

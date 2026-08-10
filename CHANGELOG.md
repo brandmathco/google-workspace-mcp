@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] — 2026-08-10
+
+### Added
+
+- **Measurement gate on enable spend** — `ads_set_campaign_status` with `ENABLED` also requires `confirmMeasurement: "GTM_OR_EQUIVALENT_VERIFIED"` after verifying GTM (or gtag/GA4 + Ads conversion) on the landing URL (`docs/ADS_SAFETY.md`)
+
+## [1.7.0] — 2026-08-10
+
+### Added
+
+- **Google Analytics (GA4)** tools via Analytics Admin + Data APIs: list account/property summaries, get dimension/metric metadata, run reports, run realtime reports
+- OAuth scope `https://www.googleapis.com/auth/analytics.readonly` (re-authorize all accounts after upgrade)
+- Optional `GOOGLE_ANALYTICS_DEFAULT_PROPERTY_ID` for default property on report tools
+
 ## [1.6.0] — 2026-08-03
 
 ### Added

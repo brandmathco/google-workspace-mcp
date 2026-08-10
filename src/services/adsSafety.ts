@@ -2,6 +2,9 @@
 
 export const ENABLE_SPEND_CONFIRMATION = "ENABLE_SPEND" as const;
 
+/** Human must verify GTM (or gtag/GA4 + Ads conversion) on the landing URL before enable. */
+export const MEASUREMENT_CONFIRMATION = "GTM_OR_EQUIVALENT_VERIFIED" as const;
+
 export const DEFAULT_MAX_DAILY_BUDGET_MICROS = 25_000_000; // $25/day
 
 export type CampaignStatusAction = "PAUSED" | "ENABLED" | "REMOVED";
@@ -44,17 +47,29 @@ export function resolveDryRun(dryRun: boolean | undefined): boolean {
   return dryRun !== false;
 }
 
-export function assertCanEnableSpend(confirmSpend: string | undefined): void {
+export function assertCanEnableSpend(
+  confirmSpend: string | undefined,
+  confirmMeasurement?: string | undefined,
+): void {
   if (!isAdsEnableAllowed()) {
     throw new Error(
       "Enabling campaigns is blocked. Set GOOGLE_ADS_ALLOW_ENABLE=true on the MCP host " +
-        "AND pass confirmSpend: \"ENABLE_SPEND\" only after a human reviews the draft.",
+        "AND pass confirmSpend: \"ENABLE_SPEND\" only after a human reviews the draft. " +
+        `Also pass confirmMeasurement: "${MEASUREMENT_CONFIRMATION}" after verifying ` +
+        "GTM (or equivalent conversion measurement) on the landing URL.",
     );
   }
   if (confirmSpend !== ENABLE_SPEND_CONFIRMATION) {
     throw new Error(
       `To enable spend, pass confirmSpend: "${ENABLE_SPEND_CONFIRMATION}" after human approval. ` +
         "Creates always stay PAUSED; never enable from automation without an explicit review.",
+    );
+  }
+  if (confirmMeasurement !== MEASUREMENT_CONFIRMATION) {
+    throw new Error(
+      `To enable spend, pass confirmMeasurement: "${MEASUREMENT_CONFIRMATION}" after verifying ` +
+        "Google Tag Manager (or equivalent: gtag/GA4 + Google Ads conversion tag) fires on the " +
+        "campaign landing URL. Do not enable campaigns without conversion measurement.",
     );
   }
 }

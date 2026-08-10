@@ -82,7 +82,7 @@ Gmail labels act like tags. The MCP can list labels (`gmail_list_labels`), then 
 
 **Prompt (enable — human only, never for unattended automation):**
 
-> Pause is confirmed in the Ads UI. With GOOGLE_ADS_ALLOW_ENABLE already true on this host, dry-run ads_set_campaign_status ENABLED for campaign `<ID>`, show me the preview, then after I say apply, call it with confirmSpend ENABLE_SPEND and dryRun false.
+> Pause is confirmed in the Ads UI and GTM (or gtag + Ads conversion) is verified on the landing URL. With GOOGLE_ADS_ALLOW_ENABLE already true on this host, dry-run ads_set_campaign_status ENABLED for campaign `<ID>`, show me the preview, then after I say apply, call it with confirmSpend ENABLE_SPEND, confirmMeasurement GTM_OR_EQUIVALENT_VERIFIED, and dryRun false.
 
 **Automation tip:** Scheduled Cloud agents should only list + dry-run + email/Slack you the preview. Never set `GOOGLE_ADS_ALLOW_ENABLE=true` on unattended Fly secrets.
 

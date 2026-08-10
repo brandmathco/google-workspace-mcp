@@ -16,6 +16,7 @@ import {
 import { createCalendarEvent, listUpcomingEvents } from "./services/calendar.js";
 import { createTask, listTasks } from "./services/tasks.js";
 import { adsTools, handleAdsTool } from "./adsTools.js";
+import { analyticsTools, handleAnalyticsTool } from "./analyticsTools.js";
 
 const accountEmailProperty = {
   accountEmail: {
@@ -223,6 +224,7 @@ const tools = [
     },
   },
   ...adsTools,
+  ...analyticsTools,
 ] as const;
 
 const accountEmailSchema = z.string().email().optional();
@@ -310,7 +312,7 @@ export function createGoogleWorkspaceMcpServer(): Server {
   const server = new Server(
     {
       name: "google-workspace-mcp",
-      version: "1.6.0",
+      version: "1.7.1",
     },
     {
       capabilities: {
@@ -329,6 +331,9 @@ export function createGoogleWorkspaceMcpServer(): Server {
 
       const adsResult = await handleAdsTool(name, args);
       if (adsResult) return adsResult;
+
+      const analyticsResult = await handleAnalyticsTool(name, args);
+      if (analyticsResult) return analyticsResult;
 
       switch (name) {
         case "google_list_accounts": {

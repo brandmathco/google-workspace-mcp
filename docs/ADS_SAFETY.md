@@ -10,17 +10,19 @@ This MCP can create Google Ads entities. **Creates never spend by themselves** �
 4. **Never enable from automation** — `ads_set_campaign_status` with `ENABLED` requires:
    - Host env `GOOGLE_ADS_ALLOW_ENABLE=true`
    - Tool arg `confirmSpend: "ENABLE_SPEND"`
-   - Prefer leaving this env `false` on Fly / Cloud agents.
-5. **Video ads need a YouTube ID** — upload the creative to YouTube first; pass the video id (not a file path). Logos go through `ads_upload_image_asset`.
-6. **Idempotency** — pass `idempotencyKey` on creates when retrying so campaign names do not duplicate silently.
+   - Tool arg `confirmMeasurement: "GTM_OR_EQUIVALENT_VERIFIED"` after a human verifies **Google Tag Manager** (or equivalent: gtag/GA4 + Google Ads conversion tag) fires on the campaign landing URL
+   - Prefer leaving `GOOGLE_ADS_ALLOW_ENABLE` `false` on Fly / Cloud agents.
+5. **No measurement → no enable** — do not turn spend on until conversion tracking is verified. The MCP cannot scrape GTM for you; the confirmation token is the gate.
+6. **Video ads need a YouTube ID** — upload the creative to YouTube first; pass the video id (not a file path). Logos go through `ads_upload_image_asset`.
+7. **Idempotency** — pass `idempotencyKey` on creates when retrying so campaign names do not duplicate silently.
 
 ## Recommended human workflow
 
 1. Dry-run Demand Gen / RSA create → review JSON preview.
 2. Upload logo asset (`dryRun: false`) if needed.
 3. Apply create with `dryRun: false` (still **PAUSED**).
-4. Human reviews in Google Ads UI.
-5. Only then: set `GOOGLE_ADS_ALLOW_ENABLE=true` locally (not on unattended automation), call `ads_set_campaign_status` with `confirmSpend: "ENABLE_SPEND"` and `dryRun: false`.
+4. Human reviews in Google Ads UI **and** verifies GTM / Ads conversion on the landing URL (Tag Assistant / preview).
+5. Only then: set `GOOGLE_ADS_ALLOW_ENABLE=true` locally (not on unattended automation), call `ads_set_campaign_status` with `confirmSpend: "ENABLE_SPEND"`, `confirmMeasurement: "GTM_OR_EQUIVALENT_VERIFIED"`, and `dryRun: false`.
 
 ## Prerequisites
 
