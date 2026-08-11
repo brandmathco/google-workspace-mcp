@@ -1,5 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { ZodError } from "zod";
+import { handleAdsTool } from "./adsTools.js";
 import { loadEnvFile } from "./loadEnv.js";
 import { registerAuthorizeRoutes } from "./httpAuthorize.js";
 import { createGoogleWorkspaceMcpServer } from "./serverFactory.js";
@@ -11,7 +13,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 const mcpApiKey = process.env.MCP_API_KEY?.trim();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "google-workspace-mcp" });
@@ -33,6 +35,79 @@ function requireApiKey(req: Request, res: Response, next: NextFunction): void {
 
   res.status(401).json({ error: "Unauthorized" });
 }
+
+function parseAdsToolContent(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return { message: text };
+  }
+}
+
+/**
+ * Thin JSON shim for non-Cursor clients (admin-module Edge proxy).
+ * Same Ads handlers and spend guards as MCP `ads_*` tools.
+ */
+app.post("/api/ads", requireApiKey, async (req, res) => {
+  try {
+    const tool =
+      typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+    if (!tool.startsWith("ads_")) {
+      res.status(400).json({
+        error: "Only ads_* tools are allowed on /api/ads",
+      });
+      return;
+    }
+
+    const args =
+      req.body?.arguments && typeof req.body.arguments === "object"
+        ? req.body.arguments
+        : {};
+
+    const result = await handleAdsTool(tool, args);
+    if (!result) {
+      res.status(404).json({ error: `Unknown ads tool: ${tool}` });
+      return;
+    }
+
+    const text = result.content?.[0]?.text ?? "";
+    const data = parseAdsToolContent(text);
+
+    if (result.isError) {
+      res.status(400).json({
+        error: typeof data === "object" && data && "message" in data
+          ? String((data as { message: unknown }).message)
+          : text || "Ads tool error",
+        data,
+      });
+      return;
+    }
+
+    res.json({ success: true, tool, data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        error: error.errors.map((e) => e.message).join("; ") || "Invalid arguments",
+      });
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Internal server error";
+    console.error("POST /api/ads error:", error);
+    // google-ads-api failures often put a useful message on nested errors[].message
+    const nested =
+      error &&
+      typeof error === "object" &&
+      "errors" in error &&
+      Array.isArray((error as { errors: unknown[] }).errors)
+        ? (error as { errors: Array<{ message?: string }> }).errors
+            .map((e) => e?.message)
+            .filter(Boolean)
+            .join("; ")
+        : "";
+    res.status(502).json({ error: nested || message });
+  }
+});
 
 app.post("/mcp", requireApiKey, async (req, res) => {
   const server = createGoogleWorkspaceMcpServer();

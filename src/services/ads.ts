@@ -24,10 +24,60 @@ type MutateOp = MutateOperation<
   | resources.IAdGroup
   | resources.IAsset
   | resources.IAdGroupAd
+  | resources.IAdGroupCriterion
+  | resources.ICampaignCriterion
 >;
+
+export type KeywordMatchTypeInput = "EXACT" | "PHRASE" | "BROAD";
+
+export interface SearchKeywordInput {
+  text: string;
+  matchType?: KeywordMatchTypeInput;
+  negative?: boolean;
+}
+
+function resolveKeywordMatchType(
+  matchType: KeywordMatchTypeInput | undefined,
+): enums.KeywordMatchType {
+  switch (matchType ?? "PHRASE") {
+    case "EXACT":
+      return enums.KeywordMatchType.EXACT;
+    case "PHRASE":
+      return enums.KeywordMatchType.PHRASE;
+    case "BROAD":
+      return enums.KeywordMatchType.BROAD;
+    default: {
+      const _exhaustive: never = matchType as never;
+      throw new Error(`Unsupported keyword matchType: ${String(_exhaustive)}`);
+    }
+  }
+}
+
+function normalizeGeoTargetConstant(idOrResource: string): string {
+  const raw = idOrResource.trim();
+  if (!raw) throw new Error("geoTargetConstantIds entries must be non-empty.");
+  if (raw.startsWith("geoTargetConstants/")) return raw;
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) {
+    throw new Error(`Invalid geo target constant: ${idOrResource}`);
+  }
+  return `geoTargetConstants/${digits}`;
+}
 
 function textAssets(texts: string[]): Array<{ text: string }> {
   return texts.map((text) => ({ text: text.trim() })).filter((t) => t.text.length > 0);
+}
+
+/** Normalize google-ads-api campaign status (enum number or string) to a label. */
+function campaignStatusLabel(status: unknown): string {
+  if (typeof status === "string" && status.trim()) return status;
+  const numeric = typeof status === "number" ? status : Number(status);
+  if (numeric === enums.CampaignStatus.ENABLED) return "ENABLED";
+  if (numeric === enums.CampaignStatus.PAUSED) return "PAUSED";
+  if (numeric === enums.CampaignStatus.REMOVED) return "REMOVED";
+  if (numeric === enums.CampaignStatus.UNKNOWN) return "UNKNOWN";
+  if (numeric === enums.CampaignStatus.UNSPECIFIED) return "UNSPECIFIED";
+  return status == null || status === "" ? "" : String(status);
 }
 
 function summarizeMutateResponse(
@@ -76,9 +126,10 @@ export async function adsListCampaigns(options: {
     loginCustomerId: options.loginCustomerId,
   });
   const limit = Math.min(options.maxResults ?? 25, 100);
-  const statusFilter = options.includeRemoved
-    ? ""
-    : " AND campaign.status != 'REMOVED'";
+  // Google Ads rejects filters on UNSPECIFIED; enumerate supported statuses.
+  const statusClause = options.includeRemoved
+    ? "campaign.status IN ('ENABLED', 'PAUSED', 'REMOVED')"
+    : "campaign.status IN ('ENABLED', 'PAUSED')";
 
   const rows = await customer.query(`
     SELECT
@@ -91,7 +142,7 @@ export async function adsListCampaigns(options: {
       metrics.clicks,
       metrics.impressions
     FROM campaign
-    WHERE campaign.status != 'UNSPECIFIED'${statusFilter}
+    WHERE ${statusClause}
     ORDER BY campaign.id DESC
     LIMIT ${limit}
   `);
@@ -102,7 +153,7 @@ export async function adsListCampaigns(options: {
     campaigns: rows.map((row) => ({
       id: String(row.campaign?.id ?? ""),
       name: row.campaign?.name ?? "",
-      status: row.campaign?.status ?? "",
+      status: campaignStatusLabel(row.campaign?.status),
       channel: row.campaign?.advertising_channel_type ?? "",
       dailyBudgetMicros: String(row.campaign_budget?.amount_micros ?? ""),
       costMicros: String(row.metrics?.cost_micros ?? "0"),
@@ -157,7 +208,7 @@ export async function adsGetCampaign(options: {
     campaign: {
       id: String(row.campaign.id ?? ""),
       name: row.campaign.name ?? "",
-      status: row.campaign.status ?? "",
+      status: campaignStatusLabel(row.campaign.status),
       channel: row.campaign.advertising_channel_type ?? "",
       resourceName: row.campaign.resource_name ?? "",
       budgetResourceName: row.campaign_budget?.resource_name ?? "",
@@ -755,5 +806,305 @@ export async function adsUpdateCampaignBudget(options: {
     dailyBudgetMicros: options.dailyBudgetMicros,
     resourceNames: summarizeMutateResponse(response),
     message: "Campaign budget updated (still subject to campaign PAUSED/ENABLED status).",
+  };
+}
+
+export interface ApplySearchTargetingInput {
+  customerId?: string;
+  accountEmail?: string;
+  loginCustomerId?: string;
+  dryRun?: boolean;
+  campaignId: string;
+  adGroupId: string;
+  /** Geo target constant IDs or `geoTargetConstants/{id}` resource names. */
+  geoTargetConstantIds?: string[];
+  keywords?: SearchKeywordInput[];
+  /** Campaign-level negative keywords (broad by default). */
+  negativeKeywords?: string[];
+  /**
+   * In-market / affinity user interest IDs (e.g. 80529 = SEO & SEM Services).
+   * Added in Observation mode (`bid_only`) so keywords still control eligibility.
+   */
+  userInterestIds?: string[];
+  /** Existing keyword texts to remove (case-insensitive exact text match). */
+  removeKeywordTexts?: string[];
+  /** When true, remove all existing BROAD match keywords in the ad group. */
+  removeExistingBroadKeywords?: boolean;
+}
+
+export async function adsApplySearchTargeting(input: ApplySearchTargetingInput) {
+  const dryRun = resolveDryRun(input.dryRun);
+  const customerId = resolveCustomerId(input.customerId);
+  const campaignId = input.campaignId.replace(/\D/g, "");
+  const adGroupId = input.adGroupId.replace(/\D/g, "");
+  if (!campaignId) throw new Error("campaignId is required.");
+  if (!adGroupId) throw new Error("adGroupId is required.");
+
+  const campaignRn = ResourceNames.campaign(customerId, campaignId);
+  const adGroupRn = ResourceNames.adGroup(customerId, adGroupId);
+  const geoIds = (input.geoTargetConstantIds ?? []).map(normalizeGeoTargetConstant);
+  const keywords = (input.keywords ?? [])
+    .map((k) => ({
+      text: k.text.trim().toLowerCase(),
+      matchType: resolveKeywordMatchType(k.matchType),
+      negative: Boolean(k.negative),
+    }))
+    .filter((k) => k.text.length > 0);
+  const negativeKeywords = (input.negativeKeywords ?? [])
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length > 0);
+  const userInterestIds = (input.userInterestIds ?? [])
+    .map((id) => id.replace(/\D/g, ""))
+    .filter((id) => id.length > 0);
+  const removeTexts = new Set(
+    (input.removeKeywordTexts ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
+  );
+
+  if (
+    geoIds.length === 0 &&
+    keywords.length === 0 &&
+    negativeKeywords.length === 0 &&
+    userInterestIds.length === 0 &&
+    removeTexts.size === 0 &&
+    !input.removeExistingBroadKeywords
+  ) {
+    throw new Error(
+      "Provide at least one of: geoTargetConstantIds, keywords, negativeKeywords, userInterestIds, removeKeywordTexts, removeExistingBroadKeywords.",
+    );
+  }
+
+  const { customer, accountEmail } = await getAdsCustomer({
+    customerId,
+    accountEmail: input.accountEmail,
+    loginCustomerId: input.loginCustomerId,
+  });
+
+  const existingKeywordRows = await customer.query(`
+    SELECT
+      ad_group_criterion.resource_name,
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type,
+      ad_group_criterion.negative,
+      ad_group_criterion.status
+    FROM ad_group_criterion
+    WHERE ad_group.id = ${adGroupId}
+      AND ad_group_criterion.type = 'KEYWORD'
+      AND ad_group_criterion.status != 'REMOVED'
+  `);
+
+  const existingLocationRows = await customer.query(`
+    SELECT
+      campaign_criterion.resource_name,
+      campaign_criterion.location.geo_target_constant,
+      campaign_criterion.negative
+    FROM campaign_criterion
+    WHERE campaign.id = ${campaignId}
+      AND campaign_criterion.type = 'LOCATION'
+      AND campaign_criterion.negative = FALSE
+  `);
+
+  const existingAudienceRows =
+    userInterestIds.length > 0
+      ? await customer.query(`
+          SELECT
+            ad_group_criterion.resource_name,
+            ad_group_criterion.user_interest.user_interest_category
+          FROM ad_group_criterion
+          WHERE ad_group.id = ${adGroupId}
+            AND ad_group_criterion.type = 'USER_INTEREST'
+            AND ad_group_criterion.status != 'REMOVED'
+        `)
+      : [];
+
+  const existingKeywordKeys = new Set(
+    existingKeywordRows.map((row) => {
+      const text = String(row.ad_group_criterion?.keyword?.text ?? "")
+        .trim()
+        .toLowerCase();
+      const matchType = String(row.ad_group_criterion?.keyword?.match_type ?? "");
+      const negative = Boolean(row.ad_group_criterion?.negative);
+      return `${negative ? "n" : "p"}|${matchType}|${text}`;
+    }),
+  );
+  const existingLocations = new Set(
+    existingLocationRows
+      .map((row) => String(row.campaign_criterion?.location?.geo_target_constant ?? ""))
+      .filter(Boolean),
+  );
+  const existingInterests = new Set(
+    existingAudienceRows
+      .map((row) =>
+        String(row.ad_group_criterion?.user_interest?.user_interest_category ?? ""),
+      )
+      .filter(Boolean),
+  );
+
+  const operations: MutateOp[] = [];
+  const planned = {
+    locationsAdded: [] as string[],
+    keywordsAdded: [] as string[],
+    negativesAdded: [] as string[],
+    audiencesAdded: [] as string[],
+    keywordsRemoved: [] as string[],
+  };
+
+  if (geoIds.length > 0 || userInterestIds.length > 0) {
+    operations.push({
+      entity: "campaign",
+      operation: "update",
+      resource: {
+        resource_name: campaignRn,
+        ...(geoIds.length > 0
+          ? {
+              geo_target_type_setting: {
+                positive_geo_target_type: enums.PositiveGeoTargetType.PRESENCE,
+                negative_geo_target_type: enums.NegativeGeoTargetType.PRESENCE,
+              },
+            }
+          : {}),
+        ...(userInterestIds.length > 0
+          ? {
+              targeting_setting: {
+                target_restrictions: [
+                  {
+                    targeting_dimension: enums.TargetingDimension.AUDIENCE,
+                    bid_only: true,
+                  },
+                ],
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
+  for (const geo of geoIds) {
+    if (existingLocations.has(geo)) continue;
+    operations.push({
+      entity: "campaign_criterion",
+      operation: "create",
+      resource: {
+        campaign: campaignRn,
+        location: { geo_target_constant: geo },
+      },
+    });
+    planned.locationsAdded.push(geo);
+  }
+
+  for (const keyword of keywords) {
+    const key = `${keyword.negative ? "n" : "p"}|${keyword.matchType}|${keyword.text}`;
+    if (existingKeywordKeys.has(key)) continue;
+    operations.push({
+      entity: "ad_group_criterion",
+      operation: "create",
+      resource: {
+        ad_group: adGroupRn,
+        status: enums.AdGroupCriterionStatus.ENABLED,
+        negative: keyword.negative,
+        keyword: {
+          text: keyword.text,
+          match_type: keyword.matchType,
+        },
+      },
+    });
+    planned.keywordsAdded.push(
+      `${keyword.negative ? "-" : ""}${keyword.text} [${keyword.matchType}]`,
+    );
+    existingKeywordKeys.add(key);
+  }
+
+  for (const text of negativeKeywords) {
+    const key = `n|${enums.KeywordMatchType.BROAD}|${text}`;
+    if (existingKeywordKeys.has(key)) continue;
+    operations.push({
+      entity: "campaign_criterion",
+      operation: "create",
+      resource: {
+        campaign: campaignRn,
+        negative: true,
+        keyword: {
+          text,
+          match_type: enums.KeywordMatchType.BROAD,
+        },
+      },
+    });
+    planned.negativesAdded.push(text);
+    existingKeywordKeys.add(key);
+  }
+
+  for (const interestId of userInterestIds) {
+    const interestRn = ResourceNames.userInterest(customerId, interestId);
+    if (existingInterests.has(interestRn)) continue;
+    operations.push({
+      entity: "ad_group_criterion",
+      operation: "create",
+      resource: {
+        ad_group: adGroupRn,
+        status: enums.AdGroupCriterionStatus.ENABLED,
+        user_interest: {
+          user_interest_category: interestRn,
+        },
+      },
+    });
+    planned.audiencesAdded.push(interestRn);
+    existingInterests.add(interestRn);
+  }
+
+  for (const row of existingKeywordRows) {
+    const text = String(row.ad_group_criterion?.keyword?.text ?? "")
+      .trim()
+      .toLowerCase();
+    const matchType = row.ad_group_criterion?.keyword?.match_type;
+    const resourceName = row.ad_group_criterion?.resource_name;
+    if (!resourceName || !text) continue;
+    const shouldRemove =
+      removeTexts.has(text) ||
+      (Boolean(input.removeExistingBroadKeywords) &&
+        matchType === enums.KeywordMatchType.BROAD &&
+        !row.ad_group_criterion?.negative);
+    if (!shouldRemove) continue;
+    operations.push({
+      entity: "ad_group_criterion",
+      operation: "remove",
+      // google-ads-api expects the resource name string on remove.
+      resource: resourceName as unknown as resources.IAdGroupCriterion,
+    });
+    planned.keywordsRemoved.push(text);
+  }
+
+  const preview = {
+    dryRun,
+    accountEmail,
+    customerId,
+    campaignId,
+    adGroupId,
+    planned,
+    operationCount: operations.length,
+  };
+
+  if (operations.length === 0) {
+    return {
+      ...preview,
+      applied: false,
+      message: "Nothing to change — targeting already matches the request.",
+    };
+  }
+
+  if (dryRun) {
+    return {
+      ...preview,
+      applied: false,
+      message:
+        "Dry run only — targeting not written. Re-call with dryRun: false after human approval.",
+    };
+  }
+
+  const response = await customer.mutateResources(operations);
+  return {
+    ...preview,
+    applied: true,
+    resourceNames: summarizeMutateResponse(response),
+    message:
+      "Applied Search targeting (locations / keywords / negatives / audience observation). Campaign status unchanged.",
   };
 }
