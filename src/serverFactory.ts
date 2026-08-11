@@ -12,6 +12,7 @@ import {
   listMessages,
   moveMessage,
   replyToMessage,
+  sendMessage,
 } from "./services/gmail.js";
 import { createCalendarEvent, listUpcomingEvents } from "./services/calendar.js";
 import { createTask, listTasks } from "./services/tasks.js";
@@ -110,6 +111,26 @@ const tools = [
         },
       },
       required: ["messageId", "body"],
+    },
+  },
+  {
+    name: "gmail_send",
+    description:
+      "Compose and send a new Gmail message (not a reply). Use for Ads ops status reports and digests. Requires gmail.compose scope.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        to: {
+          type: "string",
+          description: "Recipient email (comma-separated allowed for multiple To)",
+        },
+        subject: { type: "string", description: "Email subject" },
+        body: { type: "string", description: "Plain-text body" },
+        cc: { type: "string", description: "Optional Cc recipients" },
+        bcc: { type: "string", description: "Optional Bcc recipients" },
+      },
+      required: ["to", "subject", "body"],
     },
   },
   {
@@ -248,6 +269,15 @@ const replySchema = z.object({
   replyAll: z.boolean().optional(),
 });
 
+const sendSchema = z.object({
+  accountEmail: accountEmailSchema,
+  to: z.string().min(1),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+  cc: z.string().optional(),
+  bcc: z.string().optional(),
+});
+
 const moveSchema = z.object({
   accountEmail: accountEmailSchema,
   messageId: z.string().min(1),
@@ -377,6 +407,11 @@ export function createGoogleWorkspaceMcpServer(): Server {
           const input = replySchema.parse(args ?? {});
           const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await replyToMessage(auth, input));
+        }
+        case "gmail_send": {
+          const input = sendSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await sendMessage(auth, input));
         }
         case "gmail_move": {
           const input = moveSchema.parse(args ?? {});

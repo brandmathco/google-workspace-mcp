@@ -131,6 +131,53 @@ export async function getMessage(
   };
 }
 
+function encodeRawMessage(rawMessage: string): string {
+  return Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** Compose and send a new Gmail message (not a reply). */
+export async function sendMessage(
+  auth: OAuth2Client | JWT,
+  options: {
+    to: string;
+    subject: string;
+    body: string;
+    cc?: string;
+    bcc?: string;
+  },
+): Promise<{ id: string; threadId: string }> {
+  const gmail = await createGmailClient(auth);
+  const headers = [
+    `To: ${options.to.trim()}`,
+    `Subject: ${options.subject.trim()}`,
+    "Content-Type: text/plain; charset=utf-8",
+    "MIME-Version: 1.0",
+  ];
+  if (options.cc?.trim()) {
+    headers.splice(1, 0, `Cc: ${options.cc.trim()}`);
+  }
+  if (options.bcc?.trim()) {
+    headers.splice(1, 0, `Bcc: ${options.bcc.trim()}`);
+  }
+
+  const rawMessage = `${headers.join("\r\n")}\r\n\r\n${options.body}`;
+  const sent = await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodeRawMessage(rawMessage),
+    },
+  });
+
+  return {
+    id: sent.data.id ?? "",
+    threadId: sent.data.threadId ?? "",
+  };
+}
+
 export async function replyToMessage(
   auth: OAuth2Client | JWT,
   options: {
@@ -164,16 +211,11 @@ export async function replyToMessage(
   }
 
   const rawMessage = `${headers.join("\r\n")}\r\n\r\n${options.body}`;
-  const encoded = Buffer.from(rawMessage)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 
   const sent = await gmail.users.messages.send({
     userId: "me",
     requestBody: {
-      raw: encoded,
+      raw: encodeRawMessage(rawMessage),
       threadId: original.threadId,
     },
   });
