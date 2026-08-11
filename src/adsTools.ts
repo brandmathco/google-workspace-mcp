@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  adsApplySearchTargeting,
   adsCreateDemandGenVideoCampaign,
   adsCreateResponsiveSearchAd,
   adsGetCampaign,
@@ -276,6 +277,64 @@ export const adsTools = [
       required: ["budgetResourceName", "dailyBudgetMicros"],
     },
   },
+  {
+    name: "ads_apply_search_targeting",
+    description:
+      "Add Search campaign locations, keywords, campaign negatives, and in-market audiences (Observation / bid_only). Optionally remove broad or listed keywords. dryRun defaults to true. Does not enable spend.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...customerIdProperty,
+        ...loginCustomerIdProperty,
+        ...dryRunProperty,
+        campaignId: { type: "string", description: "Numeric campaign ID" },
+        adGroupId: { type: "string", description: "Numeric ad group ID" },
+        geoTargetConstantIds: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Geo IDs (e.g. 2124 Canada, 2840 US, 1001801 Calgary) or geoTargetConstants/{id}",
+        },
+        keywords: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              matchType: {
+                type: "string",
+                enum: ["EXACT", "PHRASE", "BROAD"],
+              },
+              negative: { type: "boolean" },
+            },
+            required: ["text"],
+          },
+          description: "Ad group keywords (default matchType PHRASE)",
+        },
+        negativeKeywords: {
+          type: "array",
+          items: { type: "string" },
+          description: "Campaign-level broad negative keywords",
+        },
+        userInterestIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "In-market user interest IDs (Observation mode)",
+        },
+        removeKeywordTexts: {
+          type: "array",
+          items: { type: "string" },
+          description: "Existing keyword texts to remove (case-insensitive)",
+        },
+        removeExistingBroadKeywords: {
+          type: "boolean",
+          description: "Remove all existing BROAD keywords in the ad group",
+        },
+      },
+      required: ["campaignId", "adGroupId"],
+    },
+  },
 ] as const;
 
 const accountEmailSchema = z.string().email().optional();
@@ -416,6 +475,33 @@ export async function handleAdsTool(
         })
         .parse(args ?? {});
       return jsonResult(await adsUpdateCampaignBudget(input));
+    }
+    case "ads_apply_search_targeting": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          customerId: customerIdSchema,
+          loginCustomerId: loginCustomerIdSchema,
+          dryRun: dryRunSchema,
+          campaignId: z.string().min(1),
+          adGroupId: z.string().min(1),
+          geoTargetConstantIds: z.array(z.string()).optional(),
+          keywords: z
+            .array(
+              z.object({
+                text: z.string().min(1),
+                matchType: z.enum(["EXACT", "PHRASE", "BROAD"]).optional(),
+                negative: z.boolean().optional(),
+              }),
+            )
+            .optional(),
+          negativeKeywords: z.array(z.string()).optional(),
+          userInterestIds: z.array(z.string()).optional(),
+          removeKeywordTexts: z.array(z.string()).optional(),
+          removeExistingBroadKeywords: z.boolean().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await adsApplySearchTargeting(input));
     }
     default:
       return null;
