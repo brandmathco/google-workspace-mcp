@@ -203,13 +203,21 @@ export async function linkedInApiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    const message =
+    let message =
       typeof payload === "object" &&
       payload &&
       "message" in payload &&
       typeof (payload as { message: unknown }).message === "string"
         ? (payload as { message: string }).message
         : text.slice(0, 500) || `HTTP ${response.status}`;
+    if (
+      typeof payload === "object" &&
+      payload &&
+      "errorDetails" in payload &&
+      (payload as { errorDetails: unknown }).errorDetails
+    ) {
+      message += ` | details: ${JSON.stringify((payload as { errorDetails: unknown }).errorDetails).slice(0, 1500)}`;
+    }
     throw new Error(`LinkedIn API ${response.status}: ${message}`);
   }
 
