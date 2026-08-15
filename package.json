@@ -1,6 +1,6 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "type": "module",
   "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, Google Tasks, Google Analytics (GA4), and spend-safe Google Ads — multi-account OAuth, Cursor-ready",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "google-calendar",
     "google-tasks",
     "google-ads",
+    "linkedin-ads",
     "google-analytics",
     "ga4",
     "cursor",
@@ -54,6 +55,7 @@
     "setup": "tsx setup/wizard-server.ts",
     "setup:wizard": "tsx setup/wizard-server.ts",
     "authorize": "tsx scripts/authorize.ts",
+    "authorize:linkedin": "tsx scripts/authorize-linkedin.ts",
     "authorize:all": "tsx scripts/authorize-all.ts",
     "authorize:all:auto": "tsx scripts/authorize-all-auto.ts",
     "typecheck": "tsc --noEmit",

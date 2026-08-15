@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ZodError } from "zod";
 import { handleAdsTool } from "./adsTools.js";
+import { handleLinkedInTool } from "./linkedinTools.js";
 import { loadEnvFile } from "./loadEnv.js";
 import { registerAuthorizeRoutes } from "./httpAuthorize.js";
 import { createGoogleWorkspaceMcpServer } from "./serverFactory.js";
@@ -106,6 +107,56 @@ app.post("/api/ads", requireApiKey, async (req, res) => {
             .join("; ")
         : "";
     res.status(502).json({ error: nested || message });
+  }
+});
+
+app.post("/api/linkedin", requireApiKey, async (req, res) => {
+  try {
+    const tool =
+      typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+    if (!tool.startsWith("linkedin_")) {
+      res.status(400).json({
+        error: "Only linkedin_* tools are allowed on /api/linkedin",
+      });
+      return;
+    }
+
+    const args =
+      req.body?.arguments && typeof req.body.arguments === "object"
+        ? req.body.arguments
+        : {};
+
+    const result = await handleLinkedInTool(tool, args);
+    if (!result) {
+      res.status(404).json({ error: `Unknown linkedin tool: ${tool}` });
+      return;
+    }
+
+    const text = result.content?.[0]?.text ?? "";
+    const data = parseAdsToolContent(text);
+
+    if (result.isError) {
+      res.status(400).json({
+        error: typeof data === "object" && data && "message" in data
+          ? String((data as { message: unknown }).message)
+          : text || "LinkedIn tool error",
+        data,
+      });
+      return;
+    }
+
+    res.json({ success: true, tool, data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        error: error.errors.map((e) => e.message).join("; ") || "Invalid arguments",
+      });
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Internal server error";
+    console.error("POST /api/linkedin error:", error);
+    res.status(502).json({ error: message });
   }
 });
 

@@ -1,7 +1,10 @@
-export function renderAuthorizationCompleteHtml(accountEmail?: string): string {
+export function renderAuthorizationCompleteHtml(
+  accountEmail?: string,
+  provider = "Google Workspace",
+): string {
   const accountLine = accountEmail
     ? `<p><strong>${accountEmail}</strong> is connected.</p>`
-    : `<p>Google Workspace MCP is connected.</p>`;
+    : `<p>${provider} MCP is connected.</p>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -92,7 +95,7 @@ export function renderAuthorizationCompleteHtml(accountEmail?: string): string {
     </div>
     <h1>Authorization complete</h1>
     ${accountLine}
-    <p>Authorize another account anytime with the same /authorize link.</p>
+    <p>Authorize another account anytime with the same authorize link.</p>
     <p>You can close this tab.</p>
     <a class="site" href="https://www.brandmatchgrowth.com/" target="_blank" rel="noopener noreferrer">www.brandmatchgrowth.com</a>
   </main>

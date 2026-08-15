@@ -115,8 +115,13 @@ See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and busi
 | `ads_upload_image_asset` | Upload logo/image asset for Demand Gen |
 | `ads_set_campaign_status` | Pause always; ENABLE double-gated |
 | `ads_update_campaign_budget` | Update budget within env cap |
+| `linkedin_list_authorized_accounts` | LinkedIn OAuth accounts on this host |
+| `linkedin_list_ad_accounts` | LinkedIn Campaign Manager ad accounts |
+| `linkedin_list_campaigns` | LinkedIn campaigns (read-only) |
+| `linkedin_create_website_visit_campaign` | PAUSED group + PAUSED website-visit campaign (`dryRun` default true) |
+| `linkedin_set_campaign_status` | PAUSED / ACTIVE / ARCHIVED (ACTIVE double-gated) |
 
-All Gmail/Calendar/Tasks/Ads tools accept optional **`accountEmail`** (e.g. `you@gmail.com`) to target a specific authorized account. Omit it to use the default. Ads tools also accept **`customerId`** / **`loginCustomerId`**.
+All Gmail/Calendar/Tasks/Ads tools accept optional **`accountEmail`** (e.g. `you@gmail.com`) to target a specific authorized account. Omit it to use the default. Ads tools also accept **`customerId`** / **`loginCustomerId`**. LinkedIn tools accept **`accountEmail`** and **`adAccountId`** — see [docs/LINKEDIN_ADS.md](./docs/LINKEDIN_ADS.md).
 
 ## Multi-account OAuth
 

@@ -10,6 +10,11 @@ import {
   getAuthorizationUrl,
 } from "./auth/googleAuth.js";
 import {
+  exchangeLinkedInAuthorizationCode,
+  getLinkedInAuthorizationUrl,
+} from "./auth/linkedinAuth.js";
+import { saveAuthorizedLinkedInAccount } from "./auth/linkedinAccountStore.js";
+import {
   consumeOAuthStateDetailed,
   createOAuthState,
 } from "./auth/oauthStateStore.js";
@@ -102,6 +107,66 @@ export function registerAuthorizeRoutes(app: Express): void {
       const message =
         authError instanceof Error ? authError.message : String(authError);
       res.status(500).type("html").send(`<h1>Token exchange failed</h1><pre>${message}</pre>`);
+    }
+  });
+
+  app.get("/authorize/linkedin", (req, res) => {
+    if (!requireAuthorizeHashKey(req, res)) {
+      return;
+    }
+
+    try {
+      const label = queryParam(req.query.label);
+      const makeDefault = queryParam(req.query.default) === "1";
+      const state = createOAuthState({ label, makeDefault });
+      const authUrl = getLinkedInAuthorizationUrl(state);
+      res.redirect(authUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/oauth2callback/linkedin", async (req, res) => {
+    const stateRaw = typeof req.query.state === "string" ? req.query.state : undefined;
+    const consumed = consumeOAuthStateDetailed(stateRaw);
+    if (!consumed.ok) {
+      sendAuthorizeDenied(res, consumed.reason);
+      return;
+    }
+
+    const error = typeof req.query.error === "string" ? req.query.error : undefined;
+    if (error) {
+      res.status(400).type("html").send(`<h1>LinkedIn authorization failed</h1><p>${error}</p>`);
+      return;
+    }
+
+    const code = typeof req.query.code === "string" ? req.query.code : undefined;
+    if (!code) {
+      res.status(400).type("html").send("<h1>Missing LinkedIn authorization code</h1>");
+      return;
+    }
+
+    try {
+      const tokens = await exchangeLinkedInAuthorizationCode(code);
+      const account = await saveAuthorizedLinkedInAccount(tokens, {
+        label: consumed.label,
+        makeDefault: consumed.makeDefault,
+      });
+
+      res
+        .status(200)
+        .type("html")
+        .send(renderAuthorizationCompleteHtml(account.email, "LinkedIn"));
+
+      console.log(`Saved LinkedIn account ${account.email} to linkedin account store`);
+    } catch (authError) {
+      const message =
+        authError instanceof Error ? authError.message : String(authError);
+      res
+        .status(500)
+        .type("html")
+        .send(`<h1>LinkedIn token exchange failed</h1><pre>${message}</pre>`);
     }
   });
 }
