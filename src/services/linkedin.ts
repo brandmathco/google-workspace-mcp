@@ -197,9 +197,10 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
     type: "SPONSORED_UPDATES",
     objectiveType: "WEBSITE_VISIT",
     costType: "CPC",
-    creativeSelection: "OPTIMIZE",
+    creativeSelection: "OPTIMIZED",
     audienceExpansionEnabled: false,
     offsiteDeliveryEnabled: true,
+    politicalIntent: "NOT_POLITICAL",
     locale: { country: countryCode, language: languageCode },
     dailyBudget: {
       amount: String(options.dailyBudgetAmount),
@@ -242,6 +243,12 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
       body: campaignGroupBody,
     },
   );
+
+  if (!groupResult.id) {
+    throw new Error(
+      "LinkedIn campaign group create succeeded but no group ID was returned.",
+    );
+  }
 
   const campaignGroupUrn = `urn:li:sponsoredCampaignGroup:${groupResult.id}`;
   const createCampaignBody = {

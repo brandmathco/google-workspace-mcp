@@ -190,17 +190,21 @@ export async function linkedInApiFetch<T = unknown>(
     throw new Error(`LinkedIn API ${response.status}: ${message}`);
   }
 
-  const restliId = response.headers.get("x-restli-id")?.trim();
+  const restliId =
+    response.headers.get("x-restli-id")?.trim() ??
+    response.headers.get("x-linkedin-id")?.trim();
+  const parsedRestliId = restliId
+    ? Number(restliId.replace(/[()]/g, "").match(/:(\d+)$/)?.[1])
+    : undefined;
+
   if (
-    restliId &&
+    parsedRestliId &&
+    Number.isFinite(parsedRestliId) &&
     typeof payload === "object" &&
     payload &&
     !("id" in payload && (payload as { id?: unknown }).id)
   ) {
-    const idMatch = restliId.match(/:(\d+)$/);
-    if (idMatch) {
-      return { ...(payload as object), id: Number(idMatch[1]) } as T;
-    }
+    return { ...(payload as object), id: parsedRestliId } as T;
   }
 
   return payload as T;
