@@ -100,3 +100,44 @@ export function buildLinkedInCampaignName(name: string, idempotencyKey?: string)
 export function linkedInApiVersion(): string {
   return process.env.LINKEDIN_API_VERSION?.trim() || "202601";
 }
+
+const LINKEDIN_GEO_URN: Record<string, string> = {
+  CA: "urn:li:geo:101174742",
+  US: "urn:li:geo:103644278",
+};
+
+const LINKEDIN_LOCALE_URN: Record<string, string> = {
+  CA: "urn:li:locale:en_CA",
+  US: "urn:li:locale:en_US",
+};
+
+/** Minimal geo + interface locale targeting required by LinkedIn REST campaigns API. */
+export function buildLinkedInGeoTargetingCriteria(
+  countryCode: string,
+  languageCode = "en",
+): Record<string, unknown> {
+  const country = countryCode.trim().toUpperCase();
+  const geoUrn = LINKEDIN_GEO_URN[country] ?? LINKEDIN_GEO_URN.CA;
+  const localeUrn =
+    LINKEDIN_LOCALE_URN[country] ??
+    (languageCode.toLowerCase().startsWith("fr")
+      ? "urn:li:locale:fr_CA"
+      : "urn:li:locale:en_US");
+
+  return {
+    include: {
+      and: [
+        {
+          or: {
+            "urn:li:adTargetingFacet:locations": [geoUrn],
+          },
+        },
+        {
+          or: {
+            "urn:li:adTargetingFacet:interfaceLocales": [localeUrn],
+          },
+        },
+      ],
+    },
+  };
+}

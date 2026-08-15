@@ -7,6 +7,7 @@ import {
   assertCanEnableLinkedInSpend,
   assertDailyBudgetWithinCap,
   buildLinkedInCampaignName,
+  buildLinkedInGeoTargetingCriteria,
   linkedInApiVersion,
   resolveAdAccountId,
   resolveDryRun,
@@ -212,6 +213,10 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
       start: runScheduleStartMs(),
       end: runScheduleEndMs(runDays),
     },
+    targetingCriteria: buildLinkedInGeoTargetingCriteria(
+      countryCode,
+      languageCode,
+    ),
   };
 
   const preview = {
@@ -230,7 +235,7 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
   }
 
   const groupResult = await linkedInApiFetch<{ id?: number }>(
-    "/rest/adCampaignGroups",
+    `/rest/adAccounts/${adAccountId}/adCampaignGroups`,
     {
       method: "POST",
       accountEmail: options.accountEmail,
@@ -244,11 +249,14 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
     campaignGroup: campaignGroupUrn,
   };
 
-  const campaignResult = await linkedInApiFetch<{ id?: number }>("/rest/adCampaigns", {
-    method: "POST",
-    accountEmail: options.accountEmail,
-    body: createCampaignBody,
-  });
+  const campaignResult = await linkedInApiFetch<{ id?: number }>(
+    `/rest/adAccounts/${adAccountId}/adCampaigns`,
+    {
+      method: "POST",
+      accountEmail: options.accountEmail,
+      body: createCampaignBody,
+    },
+  );
 
   return {
     ...preview,
@@ -295,12 +303,16 @@ export async function linkedinSetCampaignStatus(options: {
     return { ...preview, applied: false };
   }
 
-  await linkedInApiFetch(`/rest/adCampaigns/${campaignId}`, {
-    method: "POST",
-    accountEmail: options.accountEmail,
-    headers: { "X-RestLi-Method": "PARTIAL_UPDATE" },
-    body: patchBody,
-  });
+  const adAccountId = resolveAdAccountId(options.adAccountId);
+  await linkedInApiFetch(
+    `/rest/adAccounts/${adAccountId}/adCampaigns/${campaignId}`,
+    {
+      method: "POST",
+      accountEmail: options.accountEmail,
+      headers: { "X-RestLi-Method": "PARTIAL_UPDATE" },
+      body: patchBody,
+    },
+  );
 
   return { ...preview, applied: true };
 }
