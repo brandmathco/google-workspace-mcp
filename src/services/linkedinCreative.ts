@@ -44,6 +44,7 @@ async function fetchImageBytes(imageUrl: string): Promise<{
 export async function linkedinResolveOrganization(options?: {
   organizationId?: string;
   vanityName?: string;
+  adAccountId?: string;
   accountEmail?: string;
 }) {
   const explicitId = resolveOrganizationId(options?.organizationId);
@@ -53,6 +54,24 @@ export async function linkedinResolveOrganization(options?: {
       organizationUrn: organizationUrn(explicitId),
       source: "argument_or_env" as const,
     };
+  }
+
+  if (options?.adAccountId) {
+    const adAccountId = resolveAdAccountId(options.adAccountId);
+    const account = await linkedInApiFetch<{ reference?: string; name?: string }>(
+      `/rest/adAccounts/${adAccountId}`,
+      { accountEmail: options.accountEmail },
+    );
+    const reference = account.reference ?? "";
+    const match = reference.match(/urn:li:organization:(\d+)/);
+    if (match?.[1]) {
+      return {
+        organizationId: match[1],
+        organizationUrn: organizationUrn(match[1]),
+        adAccountName: account.name ?? "",
+        source: "ad_account_reference" as const,
+      };
+    }
   }
 
   const vanityName = resolveOrganizationVanityName(options?.vanityName);
@@ -105,6 +124,7 @@ export async function linkedinUploadImageFromUrl(options: {
   imageUrl: string;
   organizationId?: string;
   vanityName?: string;
+  adAccountId?: string;
   accountEmail?: string;
   dryRun?: boolean;
 }) {
@@ -112,6 +132,7 @@ export async function linkedinUploadImageFromUrl(options: {
   const org = await linkedinResolveOrganization({
     organizationId: options.organizationId,
     vanityName: options.vanityName,
+    adAccountId: options.adAccountId,
     accountEmail: options.accountEmail,
   });
 
@@ -187,6 +208,7 @@ export async function linkedinCreateSponsoredImageCreative(options: {
   const org = await linkedinResolveOrganization({
     organizationId: options.organizationId,
     vanityName: options.vanityName,
+    adAccountId,
     accountEmail: options.accountEmail,
   });
 
@@ -386,11 +408,13 @@ export async function linkedinListCreatives(options: {
   const limit = Math.min(options.maxResults ?? 25, 100);
   const campaignId = options.campaignId?.replace(/\D/g, "");
 
-  const searchParts = ["status:(values:List(ACTIVE,PAUSED,DRAFT,ARCHIVED,CANCELED))"];
+  const params = new URLSearchParams({
+    q: "criteria",
+    sortOrder: "DESCENDING",
+    pageSize: String(limit),
+  });
   if (campaignId) {
-    searchParts.push(
-      `campaign:(values:List(urn:li:sponsoredCampaign:${campaignId}))`,
-    );
+    params.set("campaigns", `List(urn:li:sponsoredCampaign:${campaignId})`);
   }
 
   const data = await linkedInApiFetch<{
@@ -401,10 +425,10 @@ export async function linkedinListCreatives(options: {
       campaign?: string;
       content?: { reference?: string };
     }>;
-  }>(
-    `/rest/adAccounts/${adAccountId}/creatives?q=search&search=(${searchParts.join(",")})&count=${limit}`,
-    { accountEmail: options?.accountEmail },
-  );
+  }>(`/rest/adAccounts/${adAccountId}/creatives?${params.toString()}`, {
+    accountEmail: options?.accountEmail,
+    headers: { "X-RestLi-Method": "FINDER" },
+  });
 
   return {
     adAccountId,
