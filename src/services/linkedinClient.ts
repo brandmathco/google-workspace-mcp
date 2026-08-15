@@ -138,6 +138,29 @@ export async function getLinkedInAccessToken(options?: {
   return { accessToken, account };
 }
 
+function resolveCreatedResourceId(response: Response, payload: unknown): number | undefined {
+  if (typeof payload === "object" && payload && "id" in payload) {
+    const rawId = (payload as { id: unknown }).id;
+    if (typeof rawId === "number" && Number.isFinite(rawId)) return rawId;
+    if (typeof rawId === "string" && /^\d+$/.test(rawId)) return Number(rawId);
+  }
+
+  for (const headerName of ["x-restli-id", "x-linkedin-id"]) {
+    const raw = response.headers.get(headerName)?.trim();
+    if (!raw) continue;
+    const match = raw.replace(/[()]/g, "").match(/:(\d+)$/);
+    if (match) return Number(match[1]);
+  }
+
+  const location = response.headers.get("location") ?? response.headers.get("Location");
+  if (location) {
+    const match = location.match(/(\d+)\/?$/);
+    if (match) return Number(match[1]);
+  }
+
+  return undefined;
+}
+
 export async function linkedInApiFetch<T = unknown>(
   path: string,
   options: {
@@ -190,21 +213,14 @@ export async function linkedInApiFetch<T = unknown>(
     throw new Error(`LinkedIn API ${response.status}: ${message}`);
   }
 
-  const restliId =
-    response.headers.get("x-restli-id")?.trim() ??
-    response.headers.get("x-linkedin-id")?.trim();
-  const parsedRestliId = restliId
-    ? Number(restliId.replace(/[()]/g, "").match(/:(\d+)$/)?.[1])
-    : undefined;
-
+  const createdId = resolveCreatedResourceId(response, payload);
   if (
-    parsedRestliId &&
-    Number.isFinite(parsedRestliId) &&
+    createdId &&
     typeof payload === "object" &&
     payload &&
     !("id" in payload && (payload as { id?: unknown }).id)
   ) {
-    return { ...(payload as object), id: parsedRestliId } as T;
+    return { ...(payload as object), id: createdId } as T;
   }
 
   return payload as T;

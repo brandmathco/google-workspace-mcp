@@ -41,6 +41,22 @@ function runScheduleEndMs(days = 14): number {
   return Date.now() + days * 24 * 60 * 60 * 1000;
 }
 
+async function findCampaignGroupIdByName(options: {
+  adAccountId: string;
+  groupName: string;
+  accountEmail?: string;
+}): Promise<number | undefined> {
+  const data = await linkedInApiFetch<{
+    elements?: Array<{ id?: number; name?: string }>;
+  }>(
+    `/rest/adAccounts/${options.adAccountId}/adCampaignGroups?q=search&search=(status:(values:List(ACTIVE,DRAFT,PAUSED)))&count=100`,
+    { accountEmail: options.accountEmail },
+  );
+
+  const match = data.elements?.find((row) => row.name === options.groupName);
+  return match?.id;
+}
+
 export async function linkedinListAccounts(options?: { accountEmail?: string }) {
   const store = getLinkedInAccountStore();
   const localAccounts = await store.listAccounts();
@@ -244,13 +260,21 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
     },
   );
 
-  if (!groupResult.id) {
+  const groupId =
+    groupResult.id ??
+    (await findCampaignGroupIdByName({
+      adAccountId,
+      groupName: `${campaignName} | Group`,
+      accountEmail: options.accountEmail,
+    }));
+
+  if (!groupId) {
     throw new Error(
       "LinkedIn campaign group create succeeded but no group ID was returned.",
     );
   }
 
-  const campaignGroupUrn = `urn:li:sponsoredCampaignGroup:${groupResult.id}`;
+  const campaignGroupUrn = `urn:li:sponsoredCampaignGroup:${groupId}`;
   const createCampaignBody = {
     ...campaignBody,
     campaignGroup: campaignGroupUrn,
@@ -268,7 +292,7 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
   return {
     ...preview,
     applied: true,
-    campaignGroupId: String(groupResult.id ?? ""),
+    campaignGroupId: String(groupId),
     campaignGroupUrn,
     campaignId: String(campaignResult.id ?? ""),
     campaignUrn: `urn:li:sponsoredCampaign:${campaignResult.id}`,
