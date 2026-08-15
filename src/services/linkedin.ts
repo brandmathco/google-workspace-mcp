@@ -1,5 +1,8 @@
 import { getLinkedInAccountStore } from "../auth/linkedinAccountStore.js";
-import { linkedInApiFetch } from "./linkedinClient.js";
+import {
+  envLinkedInAccountSummary,
+  linkedInApiFetch,
+} from "./linkedinClient.js";
 import {
   assertCanEnableLinkedInSpend,
   assertDailyBudgetWithinCap,
@@ -304,7 +307,19 @@ export async function linkedinSetCampaignStatus(options: {
 
 export async function linkedinListAuthorizedAccounts() {
   const store = getLinkedInAccountStore();
-  const accounts = await store.listAccounts();
-  const defaultMemberId = await store.getDefaultMemberId();
-  return { defaultMemberId, accounts };
+  const fileAccounts = await store.listAccounts();
+  const envSummary = envLinkedInAccountSummary();
+  const accounts = envSummary
+    ? [
+        envSummary,
+        ...fileAccounts.filter((row) => row.email !== envSummary.email),
+      ]
+    : fileAccounts;
+  const defaultMemberId =
+    envSummary?.memberId ?? (await store.getDefaultMemberId());
+  return {
+    defaultMemberId,
+    accounts,
+    source: envSummary ? "env+file" : "file",
+  };
 }

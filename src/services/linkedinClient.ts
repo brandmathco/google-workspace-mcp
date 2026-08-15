@@ -1,7 +1,10 @@
 import {
   getLinkedInAccountStore,
 } from "../auth/linkedinAccountStore.js";
-import type { LinkedInStoredAccount } from "../auth/linkedinAccountTypes.js";
+import type {
+  LinkedInAccountSummary,
+  LinkedInStoredAccount,
+} from "../auth/linkedinAccountTypes.js";
 import { refreshLinkedInAccessToken } from "../auth/linkedinAuth.js";
 import { linkedInApiVersion } from "./linkedinSafety.js";
 
@@ -19,37 +22,85 @@ function resolveAccountEmail(accountEmail?: string): string | undefined {
   return envDefault || undefined;
 }
 
+export function envLinkedInAccount(): LinkedInStoredAccount | null {
+  const refreshToken = process.env.LINKEDIN_REFRESH_TOKEN?.trim();
+  if (!refreshToken) return null;
+
+  const memberId =
+    process.env.LINKEDIN_DEFAULT_MEMBER_ID?.trim() || "fly-env-account";
+  const email =
+    process.env.LINKEDIN_DEFAULT_ACCOUNT_EMAIL?.trim().toLowerCase() ||
+    `linkedin-${memberId}@oauth.local`;
+  const accessToken = process.env.LINKEDIN_ACCESS_TOKEN?.trim();
+  const expiryRaw = process.env.LINKEDIN_ACCESS_TOKEN_EXPIRY_MS?.trim();
+  const expiryDate = expiryRaw ? Number(expiryRaw) : undefined;
+  const now = new Date().toISOString();
+
+  return {
+    memberId,
+    email,
+    name: "LinkedIn Ads (env)",
+    refresh_token: refreshToken,
+    access_token: accessToken,
+    expiry_date:
+      expiryDate && Number.isFinite(expiryDate) ? expiryDate : undefined,
+    scope: process.env.LINKEDIN_OAUTH_SCOPES?.trim() || "r_ads rw_ads r_ads_reporting",
+    authorizedAt: now,
+    updatedAt: now,
+  };
+}
+
+export function envLinkedInAccountSummary(): LinkedInAccountSummary | null {
+  const account = envLinkedInAccount();
+  if (!account) return null;
+  return {
+    memberId: account.memberId,
+    email: account.email,
+    name: account.name,
+    label: "env",
+    isDefault: true,
+    authorizedAt: account.authorizedAt,
+    updatedAt: account.updatedAt,
+    scopes: account.scope,
+  };
+}
+
 async function resolveLinkedInAccount(options?: {
   memberId?: string;
   accountEmail?: string;
 }): Promise<LinkedInStoredAccount> {
+  const envAccount = envLinkedInAccount();
   const store = getLinkedInAccountStore();
   const byEmail = resolveAccountEmail(options?.accountEmail);
   if (byEmail) {
     const account = await store.getAccountByEmail(byEmail);
-    if (!account?.refresh_token?.trim()) {
-      throw new Error(
-        `No LinkedIn refresh token for ${byEmail}. Authorize: /authorize/linkedin?hashKey=...`,
-      );
+    if (account?.refresh_token?.trim()) {
+      return account;
     }
-    return account;
+    if (envAccount && envAccount.email === byEmail) {
+      return envAccount;
+    }
+    throw new Error(
+      `No LinkedIn refresh token for ${byEmail}. Authorize: /authorize/linkedin?hashKey=...`,
+    );
   }
 
   const memberId =
     resolveMemberId(options?.memberId) ?? (await store.getDefaultMemberId());
-  if (!memberId) {
-    throw new Error(
-      "No LinkedIn account authorized. Run /authorize/linkedin or pass accountEmail.",
-    );
+  if (memberId) {
+    const account = await store.getAccount(memberId);
+    if (account?.refresh_token?.trim()) {
+      return account;
+    }
   }
 
-  const account = await store.getAccount(memberId);
-  if (!account?.refresh_token?.trim()) {
-    throw new Error(
-      `No LinkedIn refresh token for member ${memberId}. Re-authorize: /authorize/linkedin?hashKey=...`,
-    );
+  if (envAccount) {
+    return envAccount;
   }
-  return account;
+
+  throw new Error(
+    "No LinkedIn account authorized. Run /authorize/linkedin or set LINKEDIN_REFRESH_TOKEN.",
+  );
 }
 
 async function ensureAccessToken(account: LinkedInStoredAccount): Promise<string> {
@@ -70,10 +121,11 @@ async function ensureAccessToken(account: LinkedInStoredAccount): Promise<string
     refresh_token: refreshed.refresh_token ?? account.refresh_token,
     expiry_date: Date.now() + refreshed.expires_in * 1000,
     scope: refreshed.scope ?? account.scope,
-    token_type: refreshed.token_type ?? account.token_type,
     updatedAt: new Date().toISOString(),
   };
-  await store.upsertAccount(updated);
+  if (!envLinkedInAccount()) {
+    await store.upsertAccount(updated);
+  }
   return refreshed.access_token;
 }
 
