@@ -194,7 +194,6 @@ export async function linkedinCreateSponsoredImageCreative(options: {
   const campaignUrn = sponsoredCampaignUrn(campaignId);
   const ctaLabel = options.ctaLabel ?? "LEARN_MORE";
   const intendedStatus = options.intendedStatus ?? "DRAFT";
-  const dscStatus = intendedStatus === "ACTIVE" ? "ACTIVE" : "DRAFT";
   const imageUrl = options.imageUrl?.trim() || DEFAULT_IMAGE_URL;
 
   let imageUrn = options.imageUrn?.trim();
@@ -223,7 +222,7 @@ export async function linkedinCreateSponsoredImageCreative(options: {
         post: {
           adContext: {
             dscAdAccount: accountUrn,
-            dscStatus,
+            dscStatus: "ACTIVE",
           },
           author: org.organizationUrn,
           commentary: options.commentary,
