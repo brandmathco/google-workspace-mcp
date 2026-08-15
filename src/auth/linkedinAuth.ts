@@ -8,20 +8,22 @@ export const LINKEDIN_ADS_SCOPES = [
 export const LINKEDIN_BASIC_SCOPES = ["openid", "profile", "email"] as const;
 
 export function resolveLinkedInScopes(basicOnly = false): string[] {
-  if (basicOnly) {
-    return [...LINKEDIN_BASIC_SCOPES];
-  }
-
   const fromEnv = process.env.LINKEDIN_OAUTH_SCOPES?.trim();
   if (fromEnv) {
     return fromEnv.split(/[\s,]+/).filter(Boolean);
   }
 
-  const includeAds =
-    process.env.LINKEDIN_INCLUDE_ADS_SCOPES?.trim().toLowerCase() !== "false";
-  return includeAds
+  if (basicOnly) {
+    return [...LINKEDIN_BASIC_SCOPES];
+  }
+
+  // Advertising API apps often lack openid/profile/email unless "Sign In with
+  // LinkedIn" is added — default to Marketing API scopes only.
+  const includeBasic =
+    process.env.LINKEDIN_INCLUDE_BASIC_SCOPES?.trim().toLowerCase() === "true";
+  return includeBasic
     ? [...LINKEDIN_BASIC_SCOPES, ...LINKEDIN_ADS_SCOPES]
-    : [...LINKEDIN_BASIC_SCOPES];
+    : [...LINKEDIN_ADS_SCOPES];
 }
 
 /** @deprecated use resolveLinkedInScopes() */
@@ -78,7 +80,8 @@ export function getLinkedInOAuthPreview(basicOnly = false) {
     linkedInRedirectUrlsToRegister: [redirectUri],
     note:
       "Add redirectUri EXACTLY (character-for-character) under LinkedIn Developer → Auth → Authorized redirect URLs. " +
-      "If Advertising API is not approved yet, authorize with basic=1 first (openid/profile/email only).",
+      "Default scopes are r_ads rw_ads r_ads_reporting only (openid requires Sign In with LinkedIn product). " +
+      "Use basic=1 only if Sign In with LinkedIn is enabled on the app.",
   };
 }
 
