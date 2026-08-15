@@ -16,8 +16,23 @@ const mcpApiKey = process.env.MCP_API_KEY?.trim();
 const app = express();
 app.use(express.json({ limit: "2mb" }));
 
+const bootStartedMs = Date.now();
+let mcpReady = false;
+
+async function warmupMcp(): Promise<void> {
+  // Preload heavy tool modules so the first Cursor MCP handshake is fast.
+  createGoogleWorkspaceMcpServer().close();
+  mcpReady = true;
+  console.log(`MCP warmup complete in ${Date.now() - bootStartedMs}ms`);
+}
+
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "google-workspace-mcp" });
+  res.json({
+    ok: true,
+    service: "google-workspace-mcp",
+    mcpReady,
+    bootMs: Date.now() - bootStartedMs,
+  });
 });
 
 registerAuthorizeRoutes(app);
@@ -214,4 +229,5 @@ app.delete("/mcp", requireApiKey, (_req, res) => {
 
 app.listen(port, host, () => {
   console.log(`google-workspace-mcp listening on http://${host}:${port}`);
+  void warmupMcp();
 });
