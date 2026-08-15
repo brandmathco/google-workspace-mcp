@@ -12,6 +12,7 @@ import {
 import {
   exchangeLinkedInAuthorizationCode,
   getLinkedInAuthorizationUrl,
+  getLinkedInOAuthPreview,
 } from "./auth/linkedinAuth.js";
 import { saveAuthorizedLinkedInAccount } from "./auth/linkedinAccountStore.js";
 import {
@@ -118,9 +119,24 @@ export function registerAuthorizeRoutes(app: Express): void {
     try {
       const label = queryParam(req.query.label);
       const makeDefault = queryParam(req.query.default) === "1";
+      const basicOnly = queryParam(req.query.basic) === "1";
       const state = createOAuthState({ label, makeDefault });
-      const authUrl = getLinkedInAuthorizationUrl(state);
+      const authUrl = getLinkedInAuthorizationUrl(state, basicOnly);
       res.redirect(authUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/authorize/linkedin/preview", (req, res) => {
+    if (!requireAuthorizeHashKey(req, res)) {
+      return;
+    }
+
+    try {
+      const basicOnly = queryParam(req.query.basic) === "1";
+      res.json(getLinkedInOAuthPreview(basicOnly));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       res.status(500).json({ error: message });

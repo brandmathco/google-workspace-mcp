@@ -1,11 +1,33 @@
 /** LinkedIn Marketing API OAuth scopes for ad read/write. */
-export const LINKEDIN_SCOPES = [
-  "openid",
-  "profile",
-  "email",
+export const LINKEDIN_ADS_SCOPES = [
   "r_ads",
   "rw_ads",
   "r_ads_reporting",
+] as const;
+
+export const LINKEDIN_BASIC_SCOPES = ["openid", "profile", "email"] as const;
+
+export function resolveLinkedInScopes(basicOnly = false): string[] {
+  if (basicOnly) {
+    return [...LINKEDIN_BASIC_SCOPES];
+  }
+
+  const fromEnv = process.env.LINKEDIN_OAUTH_SCOPES?.trim();
+  if (fromEnv) {
+    return fromEnv.split(/[\s,]+/).filter(Boolean);
+  }
+
+  const includeAds =
+    process.env.LINKEDIN_INCLUDE_ADS_SCOPES?.trim().toLowerCase() !== "false";
+  return includeAds
+    ? [...LINKEDIN_BASIC_SCOPES, ...LINKEDIN_ADS_SCOPES]
+    : [...LINKEDIN_BASIC_SCOPES];
+}
+
+/** @deprecated use resolveLinkedInScopes() */
+export const LINKEDIN_SCOPES = [
+  ...LINKEDIN_BASIC_SCOPES,
+  ...LINKEDIN_ADS_SCOPES,
 ] as const;
 
 export interface LinkedInTokenResponse {
@@ -35,16 +57,29 @@ export function linkedInOAuthConfig(): {
   return { clientId, clientSecret, redirectUri };
 }
 
-export function getLinkedInAuthorizationUrl(state: string): string {
+export function getLinkedInAuthorizationUrl(state: string, basicOnly = false): string {
   const { clientId, redirectUri } = linkedInOAuthConfig();
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
     redirect_uri: redirectUri,
     state,
-    scope: LINKEDIN_SCOPES.join(" "),
+    scope: resolveLinkedInScopes(basicOnly).join(" "),
   });
   return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;
+}
+
+export function getLinkedInOAuthPreview(basicOnly = false) {
+  const { clientId, redirectUri } = linkedInOAuthConfig();
+  return {
+    clientId,
+    redirectUri,
+    scopes: resolveLinkedInScopes(basicOnly),
+    linkedInRedirectUrlsToRegister: [redirectUri],
+    note:
+      "Add redirectUri EXACTLY (character-for-character) under LinkedIn Developer → Auth → Authorized redirect URLs. " +
+      "If Advertising API is not approved yet, authorize with basic=1 first (openid/profile/email only).",
+  };
 }
 
 export async function exchangeLinkedInAuthorizationCode(
