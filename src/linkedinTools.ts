@@ -171,7 +171,7 @@ export const linkedinTools = [
   {
     name: "linkedin_create_sponsored_image_creative",
     description:
-      "Create a DRAFT single-image sponsored creative (createInline) on a website-visit campaign. Uploads image unless imageUrn provided. dryRun defaults to true.",
+      "Create a DRAFT single-image sponsored creative on a website-visit campaign. Uploads image, creates a sponsored post, then attaches it to the campaign. dryRun defaults to true.",
     inputSchema: {
       type: "object",
       properties: {

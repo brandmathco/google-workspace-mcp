@@ -214,30 +214,35 @@ export async function linkedinCreateSponsoredImageCreative(options: {
   }
 
   const creativeBody = {
-    creative: {
+    postBody: {
+      adContext: {
+        dscAdAccount: accountUrn,
+        dscStatus: "ACTIVE",
+      },
+      author: org.organizationUrn,
+      commentary: options.commentary,
+      visibility: "PUBLIC",
+      distribution: {
+        feedDistribution: "NONE",
+        thirdPartyDistributionChannels: [] as string[],
+      },
+      lifecycleState: "PUBLISHED",
+      isReshareDisabledByAuthor: true,
+      contentCallToActionLabel: ctaLabel,
+      contentLandingPage: options.landingPageUrl,
+      content: {
+        media: {
+          title: options.mediaTitle,
+          id: imageUrn ?? "urn:li:image:DRY_RUN_PLACEHOLDER",
+        },
+      },
+    },
+    creativeBody: {
       campaign: campaignUrn,
       intendedStatus,
       ...(options.creativeName ? { name: options.creativeName } : {}),
-      inlineContent: {
-        post: {
-          adContext: {
-            dscAdAccount: accountUrn,
-            dscStatus: "ACTIVE",
-          },
-          author: org.organizationUrn,
-          commentary: options.commentary,
-          visibility: "PUBLIC",
-          lifecycleState: "PUBLISHED",
-          isReshareDisabledByAuthor: true,
-          contentCallToActionLabel: ctaLabel,
-          contentLandingPage: options.landingPageUrl,
-          content: {
-            media: {
-              title: options.mediaTitle,
-              id: imageUrn ?? "urn:li:image:DRY_RUN_PLACEHOLDER",
-            },
-          },
-        },
+      content: {
+        reference: "urn:li:ugcPost:POST_ID_PLACEHOLDER",
       },
     },
   };
@@ -252,7 +257,8 @@ export async function linkedinCreateSponsoredImageCreative(options: {
     imageUrl,
     imageUrn: imageUrn ?? null,
     uploadResult,
-    creativeBody,
+    ...creativeBody,
+    flow: "post_then_creative_reference" as const,
   };
 
   if (dryRun) {
@@ -263,18 +269,42 @@ export async function linkedinCreateSponsoredImageCreative(options: {
     throw new Error("imageUrn is required when dryRun is false.");
   }
 
-  const result = await linkedInApiFetch<{ id?: string | number }>(
-    `/rest/adAccounts/${adAccountId}/creatives?action=createInline`,
+  const postResult = await linkedInApiFetch<{ id?: string | number }>(
+    "/rest/posts",
     {
       method: "POST",
       accountEmail: options.accountEmail,
-      body: creativeBody,
+      body: creativeBody.postBody,
+    },
+  );
+
+  const postReference =
+    typeof postResult.id === "string"
+      ? postResult.id
+      : postResult.id
+        ? `urn:li:ugcPost:${postResult.id}`
+        : undefined;
+
+  if (!postReference) {
+    throw new Error("LinkedIn post create succeeded but no post URN was returned.");
+  }
+
+  const result = await linkedInApiFetch<{ id?: string | number }>(
+    `/rest/adAccounts/${adAccountId}/creatives`,
+    {
+      method: "POST",
+      accountEmail: options.accountEmail,
+      body: {
+        ...creativeBody.creativeBody,
+        content: { reference: postReference },
+      },
     },
   );
 
   return {
     ...preview,
     applied: true,
+    postReference,
     creativeId: result.id ? String(result.id) : undefined,
     creativeUrn:
       typeof result.id === "string"
