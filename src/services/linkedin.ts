@@ -209,7 +209,7 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
   const campaignBody = {
     account: accountUrn,
     name: campaignName,
-    status: "PAUSED",
+    status: "DRAFT",
     type: "SPONSORED_UPDATES",
     objectiveType: "WEBSITE_VISIT",
     costType: "CPC",
@@ -296,7 +296,7 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
     campaignGroupUrn,
     campaignId: String(campaignResult.id ?? ""),
     campaignUrn: `urn:li:sponsoredCampaign:${campaignResult.id}`,
-    status: "PAUSED",
+    status: "DRAFT",
     nextSteps: [
       "Upload or select a single-image/video creative in Campaign Manager.",
       `Set landing URL to ${options.finalUrl}.`,

@@ -107,7 +107,7 @@ const LINKEDIN_GEO_URN: Record<string, string> = {
 };
 
 const LINKEDIN_LOCALE_URN: Record<string, string> = {
-  CA: "urn:li:locale:en_CA",
+  CA: "urn:li:locale:en_US",
   US: "urn:li:locale:en_US",
 };
 
