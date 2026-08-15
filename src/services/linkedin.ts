@@ -183,7 +183,7 @@ export async function linkedinCreateWebsiteVisitCampaign(options: {
   const campaignGroupBody = {
     account: accountUrn,
     name: `${campaignName} | Group`,
-    status: "PAUSED",
+    status: "DRAFT",
     runSchedule: {
       start: runScheduleStartMs(),
       end: runScheduleEndMs(runDays),
