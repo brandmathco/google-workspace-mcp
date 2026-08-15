@@ -213,30 +213,43 @@ export async function linkedinCreateSponsoredImageCreative(options: {
     imageUrn = uploadResult.imageUrn;
   }
 
-  const creativeBody = {
-    postBody: {
-      adContext: {
-        dscAdAccount: accountUrn,
-        dscStatus: "ACTIVE",
-      },
-      author: org.organizationUrn,
-      commentary: options.commentary,
-      visibility: "PUBLIC",
-      distribution: {
-        feedDistribution: "NONE",
-        thirdPartyDistributionChannels: [] as string[],
-      },
-      lifecycleState: "PUBLISHED",
-      isReshareDisabledByAuthor: true,
-      contentCallToActionLabel: ctaLabel,
-      contentLandingPage: options.landingPageUrl,
-      content: {
-        media: {
-          title: options.mediaTitle,
-          id: imageUrn ?? "urn:li:image:DRY_RUN_PLACEHOLDER",
-        },
+  const inlinePost = {
+    adContext: {
+      dscAdAccount: accountUrn,
+      dscStatus: "ACTIVE",
+    },
+    author: org.organizationUrn,
+    commentary: options.commentary,
+    visibility: "PUBLIC",
+    distribution: {
+      feedDistribution: "NONE",
+      thirdPartyDistributionChannels: [] as string[],
+    },
+    lifecycleState: "PUBLISHED",
+    isReshareDisabledByAuthor: true,
+    contentCallToActionLabel: ctaLabel,
+    contentLandingPage: options.landingPageUrl,
+    content: {
+      media: {
+        title: options.mediaTitle,
+        id: imageUrn ?? "urn:li:image:DRY_RUN_PLACEHOLDER",
       },
     },
+  };
+
+  const inlineCreativeBody = {
+    creative: {
+      campaign: campaignUrn,
+      intendedStatus,
+      ...(options.creativeName ? { name: options.creativeName } : {}),
+      inlineContent: {
+        post: inlinePost,
+      },
+    },
+  };
+
+  const referenceCreativeBody = {
+    postBody: inlinePost,
     creativeBody: {
       campaign: campaignUrn,
       intendedStatus,
@@ -257,8 +270,12 @@ export async function linkedinCreateSponsoredImageCreative(options: {
     imageUrl,
     imageUrn: imageUrn ?? null,
     uploadResult,
-    ...creativeBody,
-    flow: "post_then_creative_reference" as const,
+    inlineCreativeBody,
+    referenceCreativeBody,
+    flow: "createInline_then_post_reference_fallback" as const,
+    reauthNote:
+      "If create fails with 403, re-authorize LinkedIn with w_organization_social scope " +
+      "(LINKEDIN_OAUTH_SCOPES includes it by default in v1.8.1+).",
   };
 
   if (dryRun) {
@@ -269,59 +286,94 @@ export async function linkedinCreateSponsoredImageCreative(options: {
     throw new Error("imageUrn is required when dryRun is false.");
   }
 
-  const postResult = await linkedInApiFetch<{ id?: string | number }>(
-    "/rest/posts",
-    {
-      method: "POST",
-      accountEmail: options.accountEmail,
-      body: creativeBody.postBody,
-    },
-  ).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`LinkedIn sponsored post create failed: ${message}`);
-  });
-
-  const postReference =
-    typeof postResult.id === "string"
-      ? postResult.id
-      : postResult.id
-        ? `urn:li:ugcPost:${postResult.id}`
-        : undefined;
-
-  if (!postReference) {
-    throw new Error("LinkedIn post create succeeded but no post URN was returned.");
-  }
-
-  const result = await linkedInApiFetch<{ id?: string | number }>(
-    `/rest/adAccounts/${adAccountId}/creatives`,
-    {
-      method: "POST",
-      accountEmail: options.accountEmail,
-      body: {
-        ...creativeBody.creativeBody,
-        content: { reference: postReference },
+  try {
+    const inlineResult = await linkedInApiFetch<{ id?: string | number }>(
+      `/rest/adAccounts/${adAccountId}/creatives?action=createInline`,
+      {
+        method: "POST",
+        accountEmail: options.accountEmail,
+        body: inlineCreativeBody,
       },
-    },
-  ).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `LinkedIn creative attach failed for post ${postReference}: ${message}`,
     );
-  });
 
-  return {
-    ...preview,
-    applied: true,
-    postReference,
-    creativeId: result.id ? String(result.id) : undefined,
-    creativeUrn:
-      typeof result.id === "string"
-        ? result.id
-        : result.id
-          ? `urn:li:sponsoredCreative:${result.id}`
-          : undefined,
-    campaignManagerUrl: `https://www.linkedin.com/campaignmanager/accounts/${adAccountId}/campaigns/${campaignId}`,
-  };
+    return {
+      ...preview,
+      applied: true,
+      flowUsed: "createInline",
+      creativeId: inlineResult.id ? String(inlineResult.id) : undefined,
+      creativeUrn:
+        typeof inlineResult.id === "string"
+          ? inlineResult.id
+          : inlineResult.id
+            ? `urn:li:sponsoredCreative:${inlineResult.id}`
+            : undefined,
+      campaignManagerUrl: `https://www.linkedin.com/campaignmanager/accounts/${adAccountId}/campaigns/${campaignId}`,
+    };
+  } catch (inlineError) {
+    const inlineMessage =
+      inlineError instanceof Error ? inlineError.message : String(inlineError);
+
+    const postResult = await linkedInApiFetch<{ id?: string | number }>(
+      "/rest/posts",
+      {
+        method: "POST",
+        accountEmail: options.accountEmail,
+        body: referenceCreativeBody.postBody,
+      },
+    ).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `LinkedIn creative create failed. createInline: ${inlineMessage}. ` +
+          `Sponsored post fallback: ${message}. ${preview.reauthNote}`,
+      );
+    });
+
+    const postReference =
+      typeof postResult.id === "string"
+        ? postResult.id
+        : postResult.id
+          ? `urn:li:ugcPost:${postResult.id}`
+          : undefined;
+
+    if (!postReference) {
+      throw new Error(
+        `LinkedIn post create succeeded but no post URN was returned. createInline error: ${inlineMessage}`,
+      );
+    }
+
+    const result = await linkedInApiFetch<{ id?: string | number }>(
+      `/rest/adAccounts/${adAccountId}/creatives`,
+      {
+        method: "POST",
+        accountEmail: options.accountEmail,
+        body: {
+          ...referenceCreativeBody.creativeBody,
+          content: { reference: postReference },
+        },
+      },
+    ).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `LinkedIn creative attach failed for post ${postReference}. createInline: ${inlineMessage}. attach: ${message}. ${preview.reauthNote}`,
+      );
+    });
+
+    return {
+      ...preview,
+      applied: true,
+      flowUsed: "post_reference_fallback",
+      postReference,
+      inlineError: inlineMessage,
+      creativeId: result.id ? String(result.id) : undefined,
+      creativeUrn:
+        typeof result.id === "string"
+          ? result.id
+          : result.id
+            ? `urn:li:sponsoredCreative:${result.id}`
+            : undefined,
+      campaignManagerUrl: `https://www.linkedin.com/campaignmanager/accounts/${adAccountId}/campaigns/${campaignId}`,
+    };
+  }
 }
 
 export async function linkedinListCreatives(options: {

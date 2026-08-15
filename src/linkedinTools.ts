@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   linkedinCreateWebsiteVisitCampaign,
+  linkedinGetAdAccount,
   linkedinGetCampaign,
   linkedinListAccounts,
   linkedinListAuthorizedAccounts,
@@ -68,6 +69,17 @@ export const linkedinTools = [
         ...accountEmailProperty,
         ...adAccountIdProperty,
         maxResults: { type: "number", description: "Max campaigns (default 25, max 100)" },
+      },
+    },
+  },
+  {
+    name: "linkedin_get_ad_account",
+    description: "Get LinkedIn ad account metadata (name, currency, linked entities). Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...adAccountIdProperty,
       },
     },
   },
@@ -258,6 +270,15 @@ export async function handleLinkedInTool(
         })
         .parse(args ?? {});
       return jsonResult(await linkedinListCampaigns(input));
+    }
+    case "linkedin_get_ad_account": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          adAccountId: adAccountIdSchema,
+        })
+        .parse(args ?? {});
+      return jsonResult(await linkedinGetAdAccount(input));
     }
     case "linkedin_get_campaign": {
       const input = z

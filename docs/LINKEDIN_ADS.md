@@ -10,6 +10,7 @@ Spend-safe LinkedIn Marketing API tools alongside Google Ads in `google-workspac
    - `https://bmcg-google-workspace-mcp.fly.dev/oauth2callback/linkedin` (Fly)
 3. **Development tier:** map ad accounts under Products → View Ad Accounts
 4. Campaign Manager role: **Campaign Manager** or **Account Manager**
+5. **Creative creation** requires `w_organization_social` on the OAuth token (included in default scopes since v1.8.1). Re-run `/authorize/linkedin` after upgrading scopes.
 
 ## Authorize
 

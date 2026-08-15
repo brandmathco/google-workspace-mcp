@@ -113,6 +113,22 @@ export async function linkedinListAccounts(options?: { accountEmail?: string }) 
   };
 }
 
+export async function linkedinGetAdAccount(options: {
+  adAccountId?: string;
+  accountEmail?: string;
+}) {
+  const adAccountId = resolveAdAccountId(options.adAccountId);
+  const row = await linkedInApiFetch<Record<string, unknown>>(
+    `/rest/adAccounts/${adAccountId}`,
+    { accountEmail: options?.accountEmail },
+  );
+
+  return {
+    adAccountId,
+    account: row,
+  };
+}
+
 export async function linkedinListCampaigns(options: {
   adAccountId?: string;
   accountEmail?: string;

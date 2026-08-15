@@ -3,6 +3,7 @@ export const LINKEDIN_ADS_SCOPES = [
   "r_ads",
   "rw_ads",
   "r_ads_reporting",
+  "w_organization_social",
 ] as const;
 
 export const LINKEDIN_BASIC_SCOPES = ["openid", "profile", "email"] as const;
