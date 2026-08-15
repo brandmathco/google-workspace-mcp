@@ -276,7 +276,10 @@ export async function linkedinCreateSponsoredImageCreative(options: {
       accountEmail: options.accountEmail,
       body: creativeBody.postBody,
     },
-  );
+  ).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`LinkedIn sponsored post create failed: ${message}`);
+  });
 
   const postReference =
     typeof postResult.id === "string"
@@ -299,7 +302,12 @@ export async function linkedinCreateSponsoredImageCreative(options: {
         content: { reference: postReference },
       },
     },
-  );
+  ).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `LinkedIn creative attach failed for post ${postReference}: ${message}`,
+    );
+  });
 
   return {
     ...preview,
