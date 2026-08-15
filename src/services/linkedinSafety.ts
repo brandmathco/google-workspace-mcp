@@ -89,6 +89,53 @@ export function sponsoredAccountUrn(adAccountId: string): string {
   return `urn:li:sponsoredAccount:${normalizeAdAccountId(adAccountId)}`;
 }
 
+export function organizationUrn(organizationId: string): string {
+  const cleaned = organizationId.replace(/\D/g, "").trim();
+  if (!/^\d+$/.test(cleaned)) {
+    throw new Error(
+      `Invalid organizationId "${organizationId}". Use digits only.`,
+    );
+  }
+  return `urn:li:organization:${cleaned}`;
+}
+
+export function sponsoredCampaignUrn(campaignId: string): string {
+  const cleaned = campaignId.replace(/\D/g, "").trim();
+  if (!/^\d+$/.test(cleaned)) {
+    throw new Error(`Invalid campaignId "${campaignId}". Use digits only.`);
+  }
+  return `urn:li:sponsoredCampaign:${cleaned}`;
+}
+
+export type LinkedInCreativeCtaLabel =
+  | "APPLY"
+  | "DOWNLOAD"
+  | "VIEW_QUOTE"
+  | "LEARN_MORE"
+  | "SIGN_UP"
+  | "SUBSCRIBE"
+  | "REGISTER"
+  | "JOIN"
+  | "ATTEND"
+  | "REQUEST_DEMO"
+  | "SEE_MORE";
+
+export function resolveOrganizationVanityName(vanityName?: string): string {
+  const fromArg = vanityName?.trim();
+  if (fromArg) return fromArg;
+  const fromEnv = process.env.LINKEDIN_ORGANIZATION_VANITY_NAME?.trim();
+  if (fromEnv) return fromEnv;
+  return "brandmatchco-inc-consulting";
+}
+
+export function resolveOrganizationId(organizationId?: string): string | undefined {
+  const fromArg = organizationId?.trim();
+  if (fromArg) return fromArg.replace(/\D/g, "");
+  const fromEnv = process.env.LINKEDIN_DEFAULT_ORGANIZATION_ID?.trim();
+  if (fromEnv) return fromEnv.replace(/\D/g, "");
+  return undefined;
+}
+
 export function buildLinkedInCampaignName(name: string, idempotencyKey?: string): string {
   const base = name.trim();
   if (!base) throw new Error("Campaign name is required.");

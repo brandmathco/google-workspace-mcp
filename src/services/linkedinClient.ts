@@ -233,3 +233,34 @@ export async function linkedInApiFetch<T = unknown>(
 
   return payload as T;
 }
+
+export async function linkedInPutBinary(
+  uploadUrl: string,
+  bytes: Uint8Array,
+  contentType: string,
+  options: {
+    memberId?: string;
+    accountEmail?: string;
+  } = {},
+): Promise<void> {
+  const { accessToken } = await getLinkedInAccessToken({
+    memberId: options.memberId,
+    accountEmail: options.accountEmail,
+  });
+
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": contentType,
+    },
+    body: Buffer.from(bytes),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `LinkedIn image upload ${response.status}: ${text.slice(0, 500) || response.statusText}`,
+    );
+  }
+}

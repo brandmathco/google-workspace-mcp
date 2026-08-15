@@ -34,6 +34,10 @@ GET https://bmcg-google-workspace-mcp.fly.dev/authorize/linkedin?hashKey=YOUR_AU
 | `linkedin_list_campaigns` | Campaigns in an ad account |
 | `linkedin_get_campaign` | One campaign |
 | `linkedin_create_website_visit_campaign` | PAUSED group + PAUSED website-visit campaign (`dryRun` default true) |
+| `linkedin_create_sponsored_image_creative` | DRAFT single-image creative via `createInline` (uploads image from URL) |
+| `linkedin_upload_image_from_url` | Upload image asset to LinkedIn Images API |
+| `linkedin_resolve_organization` | Resolve company page org ID from vanity name |
+| `linkedin_list_creatives` | List creatives in an ad account |
 | `linkedin_set_campaign_status` | PAUSED / ACTIVE / ARCHIVED (ACTIVE gated) |
 
 ## Safety

@@ -8,6 +8,12 @@ import {
   linkedinSetCampaignStatus,
 } from "./services/linkedin.js";
 import {
+  linkedinCreateSponsoredImageCreative,
+  linkedinListCreatives,
+  linkedinResolveOrganization,
+  linkedinUploadImageFromUrl,
+} from "./services/linkedinCreative.js";
+import {
   LINKEDIN_ENABLE_SPEND_CONFIRMATION,
   LINKEDIN_MEASUREMENT_CONFIRMATION,
 } from "./services/linkedinSafety.js";
@@ -127,6 +133,99 @@ export const linkedinTools = [
       required: ["campaignId", "status"],
     },
   },
+  {
+    name: "linkedin_resolve_organization",
+    description:
+      "Resolve LinkedIn company page organization ID from vanity name or LINKEDIN_DEFAULT_ORGANIZATION_ID. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        organizationId: {
+          type: "string",
+          description: "Optional numeric organization ID (overrides vanity lookup)",
+        },
+        vanityName: {
+          type: "string",
+          description: "Company vanity slug, default brandmatchco-inc-consulting",
+        },
+      },
+    },
+  },
+  {
+    name: "linkedin_upload_image_from_url",
+    description:
+      "Upload a PNG/JPG/GIF from a public URL to LinkedIn Images API for the company page. dryRun defaults to true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...dryRunProperty,
+        imageUrl: { type: "string", description: "Public HTTPS image URL" },
+        organizationId: { type: "string", description: "Optional org ID" },
+        vanityName: { type: "string", description: "Optional company vanity slug" },
+      },
+      required: ["imageUrl"],
+    },
+  },
+  {
+    name: "linkedin_create_sponsored_image_creative",
+    description:
+      "Create a DRAFT single-image sponsored creative (createInline) on a website-visit campaign. Uploads image unless imageUrn provided. dryRun defaults to true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...adAccountIdProperty,
+        ...dryRunProperty,
+        campaignId: { type: "string", description: "Numeric campaign ID" },
+        organizationId: { type: "string", description: "Optional org ID" },
+        vanityName: { type: "string", description: "Optional company vanity slug" },
+        imageUrl: { type: "string", description: "Public image URL (default BMG og:image)" },
+        imageUrn: { type: "string", description: "Skip upload when reusing an existing urn:li:image" },
+        commentary: { type: "string", description: "Primary ad copy / intro text" },
+        mediaTitle: { type: "string", description: "Image headline/title shown on the ad" },
+        landingPageUrl: { type: "string", description: "Click-through URL" },
+        ctaLabel: {
+          type: "string",
+          enum: [
+            "APPLY",
+            "DOWNLOAD",
+            "VIEW_QUOTE",
+            "LEARN_MORE",
+            "SIGN_UP",
+            "SUBSCRIBE",
+            "REGISTER",
+            "JOIN",
+            "ATTEND",
+            "REQUEST_DEMO",
+            "SEE_MORE",
+          ],
+          description: "CTA button label, default LEARN_MORE",
+        },
+        intendedStatus: {
+          type: "string",
+          enum: ["DRAFT", "ACTIVE"],
+          description: "Creative status, default DRAFT",
+        },
+        creativeName: { type: "string", description: "Optional display name in Campaign Manager" },
+      },
+      required: ["campaignId", "commentary", "mediaTitle", "landingPageUrl"],
+    },
+  },
+  {
+    name: "linkedin_list_creatives",
+    description: "List creatives in an ad account, optionally filtered by campaign. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...adAccountIdProperty,
+        campaignId: { type: "string", description: "Optional campaign filter" },
+        maxResults: { type: "number", description: "Max creatives (default 25, max 100)" },
+      },
+    },
+  },
 ] as const;
 
 const accountEmailSchema = z.string().email().optional();
@@ -201,6 +300,74 @@ export async function handleLinkedInTool(
         })
         .parse(args ?? {});
       return jsonResult(await linkedinSetCampaignStatus(input));
+    }
+    case "linkedin_resolve_organization": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          organizationId: z.string().optional(),
+          vanityName: z.string().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await linkedinResolveOrganization(input));
+    }
+    case "linkedin_upload_image_from_url": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          dryRun: dryRunSchema,
+          imageUrl: z.string().url(),
+          organizationId: z.string().optional(),
+          vanityName: z.string().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await linkedinUploadImageFromUrl(input));
+    }
+    case "linkedin_create_sponsored_image_creative": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          adAccountId: adAccountIdSchema,
+          dryRun: dryRunSchema,
+          campaignId: z.string().min(1),
+          organizationId: z.string().optional(),
+          vanityName: z.string().optional(),
+          imageUrl: z.string().url().optional(),
+          imageUrn: z.string().optional(),
+          commentary: z.string().min(1),
+          mediaTitle: z.string().min(1),
+          landingPageUrl: z.string().url(),
+          ctaLabel: z
+            .enum([
+              "APPLY",
+              "DOWNLOAD",
+              "VIEW_QUOTE",
+              "LEARN_MORE",
+              "SIGN_UP",
+              "SUBSCRIBE",
+              "REGISTER",
+              "JOIN",
+              "ATTEND",
+              "REQUEST_DEMO",
+              "SEE_MORE",
+            ])
+            .optional(),
+          intendedStatus: z.enum(["DRAFT", "ACTIVE"]).optional(),
+          creativeName: z.string().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await linkedinCreateSponsoredImageCreative(input));
+    }
+    case "linkedin_list_creatives": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          adAccountId: adAccountIdSchema,
+          campaignId: z.string().optional(),
+          maxResults: z.number().int().positive().max(100).optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await linkedinListCreatives(input));
     }
     default:
       return null;

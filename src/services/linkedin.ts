@@ -153,7 +153,7 @@ export async function linkedinGetCampaign(options: {
   if (!campaignId) throw new Error("campaignId is required.");
 
   const row = await linkedInApiFetch<LinkedInCampaignRow>(
-    `/rest/adCampaigns/${campaignId}`,
+    `/rest/adAccounts/${adAccountId}/adCampaigns/${campaignId}`,
     { accountEmail: options?.accountEmail },
   );
 
