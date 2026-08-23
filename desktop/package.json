@@ -4,7 +4,7 @@
   "private": true,
   "author": "BrandMatchGrowth <support@brandmatchco.com>",
   "homepage": "https://www.brandmatchgrowth.com/",
-  "description": "BrandMatchGrowth installer for Google Workspace MCP — guided setup for Cursor (no npm required).",
+  "description": "BrandMatchGrowth installer for Google Workspace MCP \u2014 guided setup for Cursor (no npm required).",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -16,7 +16,7 @@
   "build": {
     "appId": "com.brandmatchgrowth.google-workspace-mcp-setup",
     "productName": "Google Workspace MCP Setup",
-    "copyright": "Copyright © 2026 BrandMatchGrowth",
+    "copyright": "Copyright \u00a9 2026 BrandMatchGrowth",
     "asar": true,
     "directories": {
       "output": "../dist-installers",
@@ -65,8 +65,17 @@
       "icon": "AppIcon.icns",
       "iconSize": 110,
       "contents": [
-        { "x": 140, "y": 200, "type": "file" },
-        { "x": 400, "y": 200, "type": "link", "path": "/Applications" }
+        {
+          "x": 140,
+          "y": 200,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 200,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "win": {
@@ -94,14 +103,41 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "electron": "^35.1.2",
-    "electron-builder": "^26.0.12",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.8.2"
   },
   "license": "MIT",
   "overrides": {
-    "keyv": "4.5.4",
+    "cacheable-request": "7.0.4",
     "flat-cache": "4.0.1",
-    "cacheable-request": "7.0.4"
+    "keyv": "4.5.4",
+    "tar": {
+      "6": "6.2.1",
+      "7": "7.5.22"
+    },
+    "form-data": "4.0.6",
+    "tmp": "0.2.7",
+    "lodash": "4.18.1",
+    "postcss": "8.5.26",
+    "ip-address": "10.5.0",
+    "js-yaml": {
+      "4": "4.3.1"
+    },
+    "nanoid": {
+      "3": "3.3.18"
+    },
+    "brace-expansion": {
+      "1": "1.1.18",
+      "2": "2.1.4",
+      "5": "5.0.9"
+    },
+    "undici": {
+      "6": "6.28.0",
+      "7": "7.29.0"
+    },
+    "fast-uri": {
+      "3": "3.1.6"
+    }
   }
 }
