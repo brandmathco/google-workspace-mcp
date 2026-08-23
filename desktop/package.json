@@ -98,5 +98,10 @@
     "electron-builder": "^26.0.12",
     "typescript": "^5.8.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "keyv": "4.5.4",
+    "flat-cache": "4.0.1",
+    "cacheable-request": "7.0.4"
+  }
 }
