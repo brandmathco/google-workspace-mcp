@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] — 2026-09-04
+
+### Added
+- `tagmanager_create_tag`, `tagmanager_create_trigger`, `tagmanager_publish_workspace`
+- OAuth scope `tagmanager.edit.containerversions` (required to publish)
+
+## [1.10.0] — 2026-09-04
+
+### Added
+- Google Tag Manager API tools: `tagmanager_list_accounts`, `tagmanager_list_containers`, `tagmanager_get_container`, `tagmanager_list_workspaces`, `tagmanager_list_tags`, `tagmanager_list_triggers`
+- REST `POST /api/tagmanager` (Bearer) for `tagmanager_*` tools
+- OAuth scopes: `tagmanager.readonly`, `tagmanager.edit.containers`, `tagmanager.publish` (re-authorize all Google accounts after upgrade; enable **Tag Manager API** in GCP)
+
+## [1.9.0] — 2026-08-22
+
+### Added
+
+- **`gmail_list_attachments`** — list files on a Gmail message (filename, mime type, size, attachmentId)
+- **`gmail_download_attachment`** — download a message attachment as image/audio/text/binary MCP content; optional `saveToDisk` on local MCP (`~/Downloads/gmail-attachments`)
+- **`gmail_get_message`** now includes attachment metadata so agents can see files before downloading
+
 ## [1.7.2] — 2026-08-11
 
 ### Added

@@ -1,8 +1,15 @@
-import express, { type NextFunction, type Request, type Response } from "express";
+import express from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ZodError } from "zod";
 import { handleAdsTool } from "./adsTools.js";
+import { handleAnalyticsTool } from "./analyticsTools.js";
+import { handleTagManagerTool } from "./tagManagerTools.js";
 import { handleLinkedInTool } from "./linkedinTools.js";
+import {
+  applySecurityHeaders,
+  createMcpGuards,
+  startCursorCloudAllowlistRefresh,
+} from "./httpAuth.js";
 import { loadEnvFile } from "./loadEnv.js";
 import { registerAuthorizeRoutes } from "./httpAuthorize.js";
 import { createGoogleWorkspaceMcpServer } from "./serverFactory.js";
@@ -12,8 +19,12 @@ loadEnvFile();
 const port = Number(process.env.PORT ?? 8080);
 const host = process.env.HOST ?? "0.0.0.0";
 const mcpApiKey = process.env.MCP_API_KEY?.trim();
+const requireApiKey = createMcpGuards(mcpApiKey);
 
 const app = express();
+app.set("trust proxy", 1);
+app.disable("x-powered-by");
+app.use(applySecurityHeaders);
 app.use(express.json({ limit: "2mb" }));
 
 const bootStartedMs = Date.now();
@@ -36,21 +47,6 @@ app.get("/health", (_req, res) => {
 });
 
 registerAuthorizeRoutes(app);
-
-function requireApiKey(req: Request, res: Response, next: NextFunction): void {
-  if (!mcpApiKey) {
-    res.status(500).json({ error: "MCP_API_KEY is not configured" });
-    return;
-  }
-
-  const header = req.headers.authorization;
-  if (header === `Bearer ${mcpApiKey}`) {
-    next();
-    return;
-  }
-
-  res.status(401).json({ error: "Unauthorized" });
-}
 
 function parseAdsToolContent(text: string): unknown {
   try {
@@ -175,6 +171,108 @@ app.post("/api/linkedin", requireApiKey, async (req, res) => {
   }
 });
 
+app.post("/api/analytics", requireApiKey, async (req, res) => {
+  try {
+    const tool =
+      typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+    if (!tool.startsWith("analytics_")) {
+      res.status(400).json({
+        error: "Only analytics_* tools are allowed on /api/analytics",
+      });
+      return;
+    }
+
+    const args =
+      req.body?.arguments && typeof req.body.arguments === "object"
+        ? req.body.arguments
+        : {};
+
+    const result = await handleAnalyticsTool(tool, args);
+    if (!result) {
+      res.status(404).json({ error: `Unknown analytics tool: ${tool}` });
+      return;
+    }
+
+    const text = result.content?.[0]?.text ?? "";
+    const data = parseAdsToolContent(text);
+
+    if (result.isError) {
+      res.status(400).json({
+        error:
+          typeof data === "object" && data && "message" in data
+            ? String((data as { message: unknown }).message)
+            : text || "Analytics tool error",
+        data,
+      });
+      return;
+    }
+
+    res.json({ success: true, tool, data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        error: error.errors.map((e) => e.message).join("; ") || "Invalid arguments",
+      });
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Internal server error";
+    console.error("POST /api/analytics error:", error);
+    res.status(502).json({ error: message });
+  }
+});
+
+app.post("/api/tagmanager", requireApiKey, async (req, res) => {
+  try {
+    const tool =
+      typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+    if (!tool.startsWith("tagmanager_")) {
+      res.status(400).json({
+        error: "Only tagmanager_* tools are allowed on /api/tagmanager",
+      });
+      return;
+    }
+
+    const args =
+      req.body?.arguments && typeof req.body.arguments === "object"
+        ? req.body.arguments
+        : {};
+
+    const result = await handleTagManagerTool(tool, args);
+    if (!result) {
+      res.status(404).json({ error: `Unknown tagmanager tool: ${tool}` });
+      return;
+    }
+
+    const text = result.content?.[0]?.text ?? "";
+    const data = parseAdsToolContent(text);
+
+    if (result.isError) {
+      res.status(400).json({
+        error:
+          typeof data === "object" && data && "message" in data
+            ? String((data as { message: unknown }).message)
+            : text || "Tag Manager tool error",
+        data,
+      });
+      return;
+    }
+
+    res.json({ success: true, tool, data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({
+        error: error.errors.map((e) => e.message).join("; ") || "Invalid arguments",
+      });
+      return;
+    }
+
+    const message = error instanceof Error ? error.message : "Internal server error";
+    console.error("POST /api/tagmanager error:", error);
+    res.status(502).json({ error: message });
+  }
+});
+
 app.post("/mcp", requireApiKey, async (req, res) => {
   const server = createGoogleWorkspaceMcpServer();
 
@@ -229,5 +327,6 @@ app.delete("/mcp", requireApiKey, (_req, res) => {
 
 app.listen(port, host, () => {
   console.log(`google-workspace-mcp listening on http://${host}:${port}`);
+  startCursorCloudAllowlistRefresh();
   void warmupMcp();
 });

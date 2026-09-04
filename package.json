@@ -1,6 +1,6 @@
 {
   "name": "google-workspace-mcp",
-  "version": "1.9.0",
+  "version": "1.10.1",
   "type": "module",
   "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, Google Tasks, Google Analytics (GA4), and spend-safe Google Ads \u2014 multi-account OAuth, Cursor-ready",
   "license": "MIT",
@@ -115,5 +115,6 @@
     "tar": "7.5.22",
     "@hono/node-server": "1.19.17",
     "fast-uri": "3.1.6"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

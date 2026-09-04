@@ -97,8 +97,11 @@ See **[docs/USE_CASES.md](./docs/USE_CASES.md)** for copy-paste prompts and busi
 | `google_list_accounts` | List authorized Google accounts and the default |
 | `google_set_default_account` | Set which account is used when `accountEmail` is omitted |
 | `google_remove_account` | Remove a stored account and its refresh token |
-| `gmail_list_messages` | Search/list Gmail (supports Gmail query syntax) |
-| `gmail_get_message` | Read a message by ID |
+| `gmail_list_messages` | Search/list Gmail (supports Gmail query syntax, including `has:attachment`) |
+| `gmail_get_message` | Read a message by ID (body + attachment metadata) |
+| `gmail_list_attachments` | List files attached to a message |
+| `gmail_download_attachment` | Download a message attachment (image/audio/text/binary) |
+| `gmail_send` | Compose and send a new message |
 | `gmail_reply` | Reply (or reply-all) in-thread |
 | `gmail_move` | Add/remove labels (archive, trash, etc.) |
 | `gmail_list_labels` | List label IDs |
@@ -302,7 +305,7 @@ Replace `/absolute/path/to/google-workspace-mcp` with your clone path. Restart C
 | Goal | Example prompt |
 |------|----------------|
 | Morning triage | *"Summarize unread mail, archive notifications, label client mail Needs-reply"* |
-| Invoicing | *"Find emails with 'invoice' or PDF attachments this week, label Finance/Invoices"* |
+| Invoicing | *"Find emails with 'invoice' or PDF attachments this week, download the PDFs, label Finance/Invoices"* |
 | Client replies | *"Draft replies for all Needs-reply threads; wait for my OK before sending"* |
 | Scheduling | *"Create 30-min calendar holds for meeting requests in unread mail"* |
 | Task capture | *"Create Google Tasks from action items in today's unread email"* |

@@ -7,6 +7,8 @@ import { z } from "zod";
 import { getAccountStore } from "./auth/accountStore.js";
 import { getGoogleAuthClient } from "./auth/googleAuth.js";
 import {
+  createDraftMessage,
+  createDraftReply,
   getMessage,
   listLabels,
   listMessages,
@@ -14,10 +16,16 @@ import {
   replyToMessage,
   sendMessage,
 } from "./services/gmail.js";
+import {
+  downloadMessageAttachment,
+  listMessageAttachments,
+  type DownloadedAttachment,
+} from "./services/gmailAttachments.js";
 import { createCalendarEvent, listUpcomingEvents } from "./services/calendar.js";
 import { createTask, listTasks } from "./services/tasks.js";
 import { adsTools, handleAdsTool } from "./adsTools.js";
 import { analyticsTools, handleAnalyticsTool } from "./analyticsTools.js";
+import { tagManagerTools, handleTagManagerTool } from "./tagManagerTools.js";
 import { linkedinTools, handleLinkedInTool } from "./linkedinTools.js";
 
 const accountEmailProperty = {
@@ -67,7 +75,7 @@ const tools = [
   {
     name: "gmail_list_messages",
     description:
-      "Search and list Gmail messages. Supports Gmail search syntax (e.g. is:unread, from:alice@example.com).",
+      "Search and list Gmail messages. Supports Gmail search syntax (e.g. is:unread, from:alice@example.com, has:attachment, filename:pdf).",
     inputSchema: {
       type: "object",
       properties: {
@@ -87,12 +95,70 @@ const tools = [
   },
   {
     name: "gmail_get_message",
-    description: "Read a single Gmail message by ID, including body text.",
+    description:
+      "Read a single Gmail message by ID, including body text and attachment metadata (filename, mimeType, size, attachmentId). Use gmail_download_attachment to fetch file bytes.",
     inputSchema: {
       type: "object",
       properties: {
         ...accountEmailProperty,
         messageId: { type: "string", description: "Gmail message ID" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_list_attachments",
+    description:
+      "List files attached to a Gmail message (filename, mime type, size, attachmentId). Does not download bytes — use gmail_download_attachment next. Find mail with files via gmail_list_messages query has:attachment or filename:pdf.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_download_attachment",
+    description:
+      "Download a file attached to a Gmail message. Returns image/audio as displayable content, text as preview, and other files as a binary resource. On a local MCP, saveToDisk writes under ~/Downloads/gmail-attachments (or savePath). Remote Fly hosts return bytes in the tool result instead of writing disk.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID" },
+        attachmentId: {
+          type: "string",
+          description: "Gmail attachment ID from gmail_get_message / gmail_list_attachments",
+        },
+        filename: {
+          type: "string",
+          description: "Attachment filename when attachmentId is unknown",
+        },
+        partId: {
+          type: "string",
+          description: "Optional MIME part ID from attachment metadata",
+        },
+        saveToDisk: {
+          type: "boolean",
+          description:
+            "Write the file to disk (local/stdio MCP only; ignored/rejected on Fly)",
+        },
+        savePath: {
+          type: "string",
+          description:
+            "Directory or file path to write (must be under home, workspace, /tmp, or GMAIL_ATTACHMENT_DIR)",
+        },
+        includeData: {
+          type: "boolean",
+          description:
+            "Include file bytes in the MCP result (default true when not saving to disk)",
+        },
+        maxBytes: {
+          type: "number",
+          description: "Max download size in bytes (default 8388608, max 26214400)",
+        },
       },
       required: ["messageId"],
     },
@@ -132,6 +198,49 @@ const tools = [
         bcc: { type: "string", description: "Optional Bcc recipients" },
       },
       required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "gmail_create_draft",
+    description:
+      "Save a new Gmail message as a draft in Drafts (does not send). Review in Gmail before sending.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        to: {
+          type: "string",
+          description: "Recipient email (comma-separated allowed for multiple To)",
+        },
+        subject: { type: "string", description: "Email subject" },
+        body: { type: "string", description: "Plain-text body" },
+        htmlBody: {
+          type: "string",
+          description:
+            "Optional HTML body. Saved as multipart/alternative with the plain-text body.",
+        },
+        cc: { type: "string", description: "Optional Cc recipients" },
+        bcc: { type: "string", description: "Optional Bcc recipients" },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "gmail_create_draft_reply",
+    description:
+      "Save a reply as a Gmail draft in the original thread (does not send). Review in Gmail before sending.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID to reply to" },
+        body: { type: "string", description: "Plain-text reply body" },
+        replyAll: {
+          type: "boolean",
+          description: "Reply to all recipients (default false)",
+        },
+      },
+      required: ["messageId", "body"],
     },
   },
   {
@@ -247,6 +356,7 @@ const tools = [
   },
   ...adsTools,
   ...analyticsTools,
+  ...tagManagerTools,
   ...linkedinTools,
 ] as const;
 
@@ -264,6 +374,23 @@ const getMessageSchema = z.object({
   messageId: z.string().min(1),
 });
 
+const downloadAttachmentSchema = z
+  .object({
+    accountEmail: accountEmailSchema,
+    messageId: z.string().min(1),
+    attachmentId: z.string().min(1).optional(),
+    filename: z.string().min(1).optional(),
+    partId: z.string().min(1).optional(),
+    saveToDisk: z.boolean().optional(),
+    savePath: z.string().min(1).optional(),
+    includeData: z.boolean().optional(),
+    maxBytes: z.number().int().positive().max(25 * 1024 * 1024).optional(),
+  })
+  .refine(
+    (value) => Boolean(value.attachmentId || value.filename || value.partId),
+    { message: "Provide attachmentId, filename, or partId" },
+  );
+
 const replySchema = z.object({
   accountEmail: accountEmailSchema,
   messageId: z.string().min(1),
@@ -279,6 +406,12 @@ const sendSchema = z.object({
   cc: z.string().optional(),
   bcc: z.string().optional(),
 });
+
+const draftSchema = sendSchema.extend({
+  htmlBody: z.string().min(1).optional(),
+});
+
+const draftReplySchema = replySchema;
 
 const moveSchema = z.object({
   accountEmail: accountEmailSchema,
@@ -340,11 +473,62 @@ function errorResult(message: string) {
   };
 }
 
+function attachmentDownloadResult(downloaded: DownloadedAttachment) {
+  const { dataBase64, textPreview, ...meta } = downloaded;
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+    | { type: "audio"; data: string; mimeType: string }
+    | {
+        type: "resource";
+        resource: { uri: string; mimeType: string; blob: string };
+      }
+  > = [
+    {
+      type: "text",
+      text: JSON.stringify(
+        {
+          ...meta,
+          textPreview,
+        },
+        null,
+        2,
+      ),
+    },
+  ];
+
+  const uri = `gmail-attachment://${downloaded.messageId}/${encodeURIComponent(downloaded.filename)}`;
+  if (downloaded.includedAs === "image" && dataBase64) {
+    content.push({
+      type: "image",
+      data: dataBase64,
+      mimeType: downloaded.mimeType,
+    });
+  } else if (downloaded.includedAs === "audio" && dataBase64) {
+    content.push({
+      type: "audio",
+      data: dataBase64,
+      mimeType: downloaded.mimeType,
+    });
+  } else if (downloaded.includedAs === "resource" && dataBase64) {
+    content.push({
+      type: "resource",
+      resource: {
+        uri,
+        mimeType: downloaded.mimeType,
+        blob: dataBase64,
+      },
+    });
+  }
+
+  return { content };
+}
+
 export function createGoogleWorkspaceMcpServer(): Server {
   const server = new Server(
     {
       name: "google-workspace-mcp",
-      version: "1.8.0",
+      version: "1.10.0",
     },
     {
       capabilities: {
@@ -366,6 +550,9 @@ export function createGoogleWorkspaceMcpServer(): Server {
 
       const analyticsResult = await handleAnalyticsTool(name, args);
       if (analyticsResult) return analyticsResult;
+
+      const tagManagerResult = await handleTagManagerTool(name, args);
+      if (tagManagerResult) return tagManagerResult;
 
       const linkedinResult = await handleLinkedInTool(name, args);
       if (linkedinResult) return linkedinResult;
@@ -408,6 +595,18 @@ export function createGoogleWorkspaceMcpServer(): Server {
           const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await getMessage(auth, input.messageId));
         }
+        case "gmail_list_attachments": {
+          const input = getMessageSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await listMessageAttachments(auth, input.messageId));
+        }
+        case "gmail_download_attachment": {
+          const input = downloadAttachmentSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return attachmentDownloadResult(
+            await downloadMessageAttachment(auth, input),
+          );
+        }
         case "gmail_reply": {
           const input = replySchema.parse(args ?? {});
           const auth = await getGoogleAuthClient(input.accountEmail);
@@ -417,6 +616,16 @@ export function createGoogleWorkspaceMcpServer(): Server {
           const input = sendSchema.parse(args ?? {});
           const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await sendMessage(auth, input));
+        }
+        case "gmail_create_draft": {
+          const input = draftSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await createDraftMessage(auth, input));
+        }
+        case "gmail_create_draft_reply": {
+          const input = draftReplySchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await createDraftReply(auth, input));
         }
         case "gmail_move": {
           const input = moveSchema.parse(args ?? {});

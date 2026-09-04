@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { JWT, OAuth2Client } from "google-auth-library";
 import { getAccountStore } from "./accountStore.js";
 
-/** OAuth scopes for Gmail, Calendar, Tasks, Google Ads, and Analytics. */
+/** OAuth scopes for Gmail, Calendar, Tasks, Ads, Analytics, and Tag Manager. */
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.compose",
@@ -12,6 +12,10 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/tasks",
   "https://www.googleapis.com/auth/adwords",
   "https://www.googleapis.com/auth/analytics.readonly",
+  "https://www.googleapis.com/auth/tagmanager.readonly",
+  "https://www.googleapis.com/auth/tagmanager.edit.containers",
+  "https://www.googleapis.com/auth/tagmanager.edit.containerversions",
+  "https://www.googleapis.com/auth/tagmanager.publish",
 ];
 
 /** @deprecated Use GOOGLE_SCOPES — kept for older imports. */

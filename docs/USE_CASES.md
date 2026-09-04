@@ -20,6 +20,18 @@ Gmail labels act like tags. The MCP can list labels (`gmail_list_labels`), then 
 
 > Search Gmail for `is:unread older_than:3d`. Archive anything that's clearly automated notifications. List anything still unread that looks like it needs a human reply.
 
+## Email attachments
+
+**Prompt:**
+
+> Search Gmail for `has:attachment filename:pdf newer_than:7d`. For each message, list the attached files, download the PDFs, and summarize the filenames and senders.
+
+**Prompt (save locally):**
+
+> Find the latest email from *billing@example.com* with an invoice attached. Download the PDF to disk.
+
+Google Drive / Workspace files inserted into a message are not MIME attachments — open the link in the body instead of `gmail_download_attachment`.
+
 ## Draft and send replies
 
 **Prompt:**

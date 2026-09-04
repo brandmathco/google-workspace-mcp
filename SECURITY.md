@@ -38,6 +38,8 @@ Ads spend policy: [`docs/ADS_SAFETY.md`](./docs/ADS_SAFETY.md).
 
 The public GitHub tree must not contain any of the above.
 
+Remote `/mcp` is Bearer-protected **and** IP-allowlisted: `MCP_ALLOWED_CIDRS` (this computer) plus live [Cursor Cloud egress IPs](https://cursor.com/docs/ips.json). REST `/api/ads`, `/api/analytics`, `/api/tagmanager`, and `/api/linkedin` stay Bearer-only so BrandMatchCo Edge Functions keep working (`MCP_ALLOW_SERVICE_CALLS=true`). `/authorize` and `/oauth2callback` stay on the existing hash-key / OAuth state checks so Google can complete login.
+
 ## Reporting issues
 
 Open a private security advisory or email the maintainers via the GitHub org if you believe a secret was exposed in this repository.
