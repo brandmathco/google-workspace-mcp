@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Mac and Windows setup opens on **Quick setup** (Cursor, this computer, Google keys, sign in, finish). Ads, AdSense, Analytics, AI Commerce Search, Supabase, and Fly stay under **Advanced**. Quick sign-in asks only for Gmail, Calendar, and Tasks.
+
 ## [1.11.0] — 2026-09-29
 
 ### Added

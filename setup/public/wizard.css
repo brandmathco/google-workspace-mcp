@@ -369,3 +369,35 @@ a {
     align-items: flex-start;
   }
 }
+
+.mode-switch {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.mode {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 14px;
+  min-height: 44px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.mode.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(123, 44, 240, 0.35);
+}
+
+body.mode-quick [data-advanced] {
+  display: none !important;
+}
+
+body.mode-full #ledeQuick,
+body.mode-quick #ledeFull {
+  display: none;
+}

@@ -61,7 +61,7 @@
     "authorize:all": "tsx scripts/authorize-all.ts",
     "authorize:all:auto": "tsx scripts/authorize-all-auto.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/services/adsenseFormat.test.ts src/services/commerceFormat.test.ts",
+    "test": "tsx --test src/services/adsenseFormat.test.ts src/services/commerceFormat.test.ts src/auth/setupPreset.test.ts",
     "desktop:prepare": "node scripts/prepare-desktop-bundle.mjs",
     "desktop:prepare:win": "node scripts/prepare-desktop-bundle.mjs --platform=win32 --arch=x64",
     "desktop:dist:mac": "npm run desktop:prepare && npm --prefix desktop install && npm --prefix desktop run dist:mac",

@@ -53,14 +53,14 @@ From **[GitHub Releases](https://github.com/brandmathco/google-workspace-mcp/rel
 
 1. Open the installer (macOS: drag the app into **Applications**).
 2. Launch **Google Workspace MCP Setup**.
-3. Follow the in-app wizard:
+3. Stay on **Quick setup** (the default) and follow the screens:
    - What **Cursor** is (+ download link)
-   - **Google Cloud** keys (opens the right Console pages)
-   - **Supabase** for multi-account (SQL + paste service_role key)
-   - Connect Google accounts
-   - Optional **Fly.io** cloud deploy (installs Fly CLI, sign-in, paste env → sets secrets & deploys)
-   - Write **Cursor** MCP config (local and/or remote)
+   - **Google Cloud** keys for Gmail, Calendar, and Tasks
+   - Sign in with Google
+   - Write the **Cursor** MCP config
 4. Restart Cursor.
+
+**Advanced** (one switch in the same app) adds Ads, Analytics, AdSense, AI Commerce Search, Supabase, and optional Fly.io.
 
 The installer **bundles Node.js** and the MCP server. You do **not** need npm for local use. Fly deploy uses the wizard to install the Fly CLI for you.
 

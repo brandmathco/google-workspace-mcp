@@ -18,17 +18,47 @@ async function api(path, options = {}) {
   return data;
 }
 
+const ADVANCED_STEPS = new Set(["4", "6"]);
+
+function isQuickMode() {
+  return document.body.classList.contains("mode-quick");
+}
+
+function applyMode(mode) {
+  const quick = mode !== "full";
+  document.body.classList.toggle("mode-quick", quick);
+  document.body.classList.toggle("mode-full", !quick);
+  $("ledeQuick").classList.toggle("hidden", !quick);
+  $("ledeFull").classList.toggle("hidden", quick);
+  $("modeQuick").classList.toggle("active", quick);
+  $("modeFull").classList.toggle("active", !quick);
+  $("modeQuick").setAttribute("aria-checked", quick ? "true" : "false");
+  $("modeFull").setAttribute("aria-checked", quick ? "false" : "true");
+  document.querySelectorAll("[data-quick-label]").forEach((el) => {
+    el.textContent = quick ? el.dataset.quickLabel : el.dataset.fullLabel;
+  });
+  try {
+    localStorage.setItem("gwmcp-setup-mode", quick ? "quick" : "full");
+  } catch {
+    // ignore private mode
+  }
+}
+
 function setStep(step) {
+  let next = Number(step);
+  if (isQuickMode() && ADVANCED_STEPS.has(String(next))) {
+    next = next === 4 ? 5 : 7;
+  }
   document.querySelectorAll(".step").forEach((el) => {
-    el.classList.toggle("active", el.dataset.step === String(step));
+    el.classList.toggle("active", el.dataset.step === String(next));
   });
   document.querySelectorAll(".panel").forEach((el) => {
-    el.classList.toggle("active", el.id === `panel-${step}`);
+    el.classList.toggle("active", el.id === `panel-${next}`);
   });
-  if (step === 5) startAccountPoll();
+  if (next === 5) startAccountPoll();
   else stopAccountPoll();
-  if (step === 6) refreshFlyStatus();
-  if (step === 7) loadCursorConfig();
+  if (next === 6) refreshFlyStatus();
+  if (next === 7) loadCursorConfig();
 }
 
 function checklistItem(ok, text) {
@@ -279,7 +309,10 @@ $("btnAuthorize").addEventListener("click", async () => {
   try {
     await api("/api/authorize", {
       method: "POST",
-      body: JSON.stringify({ label: $("accountLabel").value.trim() || undefined }),
+      body: JSON.stringify({
+        label: $("accountLabel").value.trim() || undefined,
+        preset: isQuickMode() ? "quick" : "full",
+      }),
     });
     $("authHint").textContent =
       "Browser opened. Sign in and click Allow. Come back here afterward.";
@@ -403,10 +436,21 @@ $("btnWriteCursor").addEventListener("click", async () => {
   }
 });
 
+applyMode((() => {
+  try {
+    return localStorage.getItem("gwmcp-setup-mode") || "quick";
+  } catch {
+    return "quick";
+  }
+})());
+
+$("modeQuick").addEventListener("click", () => applyMode("quick"));
+$("modeFull").addEventListener("click", () => applyMode("full"));
+
 refreshStatus()
   .then((status) => {
     if (status.packaged && status.depsInstalled && status.distBuilt) {
-      setStep(status.hasEnv ? 4 : 1);
+      setStep(status.hasEnv ? (isQuickMode() ? 5 : 4) : 1);
       return;
     }
     setStep(1);

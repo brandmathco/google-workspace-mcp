@@ -36,11 +36,18 @@
       <header class="hero">
         <p class="eyebrow">BrandMatchGrowth · Google Workspace MCP</p>
         <h1>Setup Wizard</h1>
-        <p class="lede">
-          We’ll walk you through Cursor, Google Cloud, Supabase (multi-account), optional Google Ads,
-          optional Fly.io cloud deploy, and connecting your accounts — with buttons that open the
-          right pages. Secrets stay on this computer (or Fly secrets) — never in the public GitHub repo.
+        <p class="lede" id="ledeQuick">
+          Five short screens. Cursor, this computer, your Google keys, sign in, then finish.
+          Gmail, Calendar, and Tasks. Keys stay on this computer.
         </p>
+        <p class="lede hidden" id="ledeFull">
+          Advanced covers Ads, Analytics, AdSense, AI Commerce Search, Supabase, and an optional Fly.io
+          server. Secrets stay on this computer (or Fly secrets) — never in the public GitHub repo.
+        </p>
+        <div class="mode-switch" role="radiogroup" aria-label="Setup style">
+          <button type="button" class="mode active" id="modeQuick" aria-checked="true">Quick setup</button>
+          <button type="button" class="mode" id="modeFull" aria-checked="false">Advanced</button>
+        </div>
         <p class="meta" id="versionLine">Checking your computer…</p>
       </header>
 
@@ -48,10 +55,10 @@
         <button type="button" class="step active" data-step="1">1. Cursor</button>
         <button type="button" class="step" data-step="2" id="stepBtn2">2. Ready</button>
         <button type="button" class="step" data-step="3">3. Google</button>
-        <button type="button" class="step" data-step="4">4. Supabase</button>
-        <button type="button" class="step" data-step="5">5. Accounts</button>
-        <button type="button" class="step" data-step="6">6. Fly.io</button>
-        <button type="button" class="step" data-step="7">7. Finish</button>
+        <button type="button" class="step" data-step="4" data-advanced>4. Supabase</button>
+        <button type="button" class="step" data-step="5" data-quick-label="4. Connect" data-full-label="5. Accounts">5. Accounts</button>
+        <button type="button" class="step" data-step="6" data-advanced>6. Fly.io</button>
+        <button type="button" class="step" data-step="7" data-quick-label="5. Finish" data-full-label="7. Finish">7. Finish</button>
       </nav>
 
       <main>
@@ -59,10 +66,8 @@
         <section class="panel active" id="panel-1">
           <h2>What is Cursor?</h2>
           <p>
-            <strong>Cursor</strong> is an AI code editor (like VS Code, but with a built-in AI
-            chat). This MCP server lets that AI
-            <em>actually use</em> your Gmail, Google Calendar, Google Tasks, and (optionally)
-            spend-safe Google Ads — search mail, draft replies, create events, and draft paused ads.
+            <strong>Cursor</strong> is an AI editor. This setup lets it use your Gmail, Calendar,
+            and Tasks. Switch to Advanced if you also want Ads, Analytics, AdSense, or AI Commerce Search.
           </p>
           <ul class="guide" style="list-style: disc">
             <li>You chat in plain English inside Cursor</li>
@@ -121,9 +126,9 @@
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail API</button>
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com">Calendar API</button>
                 <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tasks.googleapis.com">Tasks API</button>
-                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/googleads.googleapis.com">Google Ads API</button>
+                <button type="button" class="btn tiny" data-advanced data-open="https://console.cloud.google.com/apis/library/googleads.googleapis.com">Google Ads API</button>
               </div>
-              <p class="fineprint">
+              <p class="fineprint" data-advanced>
                 Google Ads is optional. Skip it if you only need mail / calendar / tasks.
               </p>
             </li>
@@ -145,7 +150,7 @@
               If Google asks for a redirect URI, use:<br />
               <code id="redirectUriCode">http://127.0.0.1:3847/oauth2callback</code>
               <button type="button" class="btn tiny" id="btnCopyRedirect">Copy</button>
-              (Fly deploy later will give you a second HTTPS redirect URI.)
+              <span data-advanced>(Fly deploy later will give you a second HTTPS redirect URI.)</span>
             </li>
           </ol>
 
@@ -161,6 +166,7 @@
                 placeholder="GOCSPX-…" />
             </label>
 
+            <div data-advanced>
             <h3 class="subhead">Optional — Google Ads (spend-safe)</h3>
             <p class="fineprint">
               Ads tools create campaigns as <strong>PAUSED</strong> with dry-run by default.
@@ -202,6 +208,7 @@
               Turn it on only manually when a human is ready — never for unattended Cloud agents.
             </p>
 
+            </div>
             <p class="hint" id="envHint"></p>
             <div class="actions">
               <button type="submit" class="btn primary">Save Google keys</button>
@@ -211,7 +218,7 @@
         </section>
 
         <!-- 4 Supabase -->
-        <section class="panel" id="panel-4">
+        <section class="panel" id="panel-4" data-advanced>
           <h2>Supabase — multi-account storage (for Fly / cloud)</h2>
           <p>
             To keep <strong>many Google accounts</strong> on a shared Fly server, tokens are stored
@@ -269,10 +276,9 @@
         <section class="panel" id="panel-5">
           <h2>Connect Google account(s)</h2>
           <p>
-            Sign in with Google and approve Gmail / Calendar / Tasks
-            <strong>(and Google Ads if you saved a developer token)</strong>. Repeat for every
-            account. Accounts stack — nothing is overwritten. Re-authorize after adding Ads so the
-            new scope is granted.
+            Sign in with Google. Quick setup asks for Gmail, Calendar, and Tasks.
+            Advanced also asks for Ads, Analytics, AdSense, and Cloud. Repeat for every account.
+            Accounts stack — nothing is overwritten.
           </p>
           <label class="inline">
             Optional label
@@ -288,14 +294,14 @@
           </div>
           <p class="hint" id="authHint"></p>
           <ul class="accounts" id="accountsList"></ul>
-          <p class="fineprint">
+          <p class="fineprint" data-advanced>
             Prefer connecting at least one account locally first. On Fly, you’ll authorize again
             via your <code>https://….fly.dev/authorize?hashKey=…</code> link after deploy.
           </p>
         </section>
 
         <!-- 6 Fly -->
-        <section class="panel" id="panel-6">
+        <section class="panel" id="panel-6" data-advanced>
           <h2>Fly.io — optional cloud deploy</h2>
           <p>
             Deploy so Cursor Cloud (or any remote MCP client) can reach your server over HTTPS.

@@ -4,6 +4,14 @@ import { dirname, join } from "node:path";
 import { JWT, OAuth2Client } from "google-auth-library";
 import { getAccountStore } from "./accountStore.js";
 
+/** Mail, calendar, and tasks — the lead-magnet / Quick setup consent. */
+export const GOOGLE_SCOPES_QUICK = [
+  "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/gmail.compose",
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/tasks",
+] as const;
+
 /** OAuth scopes for Gmail, Calendar, Tasks, Ads, Analytics, AdSense, Tag Manager, and AI Commerce Search. */
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
@@ -176,15 +184,23 @@ export async function getGoogleAuthClient(
   return createOAuthClientForAccount(accountEmail);
 }
 
+export type SetupPreset = "quick" | "full";
+
+/** Quick setup asks only for mail, calendar, and tasks. Full adds Ads, Analytics, AdSense, and Cloud. */
+export function scopesForSetupPreset(preset: SetupPreset | undefined): string[] {
+  if (preset === "quick") return [...GOOGLE_SCOPES_QUICK];
+  return [...GOOGLE_SCOPES];
+}
+
 export function getAuthorizationUrl(
   oauth: OAuth2Client,
   state?: string,
-  options?: { loginHint?: string },
+  options?: { loginHint?: string; scopes?: readonly string[] },
 ): string {
   return oauth.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: GOOGLE_SCOPES,
+    scope: options?.scopes ? [...options.scopes] : [...GOOGLE_SCOPES],
     ...(state ? { state } : {}),
     ...(options?.loginHint ? { login_hint: options.loginHint } : {}),
   });

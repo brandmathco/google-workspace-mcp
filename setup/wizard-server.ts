@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createOAuthClientForSetup, getAuthorizationUrl } from "../src/auth/googleAuth.js";
+import { createOAuthClientForSetup, getAuthorizationUrl, scopesForSetupPreset, type SetupPreset } from "../src/auth/googleAuth.js";
 import { saveAuthorizedAccount, getAccountStore } from "../src/auth/accountStore.js";
 import { createOAuthState, consumeOAuthState } from "../src/auth/oauthStateStore.js";
 import { renderAuthorizationCompleteHtml } from "../src/auth/authorizeCompleteHtml.js";
@@ -340,7 +340,10 @@ async function portFree(port: number): Promise<boolean> {
   });
 }
 
-async function startAuthorize(label?: string): Promise<{ ok: boolean; authUrl?: string; error?: string }> {
+async function startAuthorize(
+  label?: string,
+  preset?: SetupPreset,
+): Promise<{ ok: boolean; authUrl?: string; error?: string }> {
   if (oauthBusy) {
     return { ok: false, error: "An authorization is already in progress. Finish or cancel it first." };
   }
@@ -371,7 +374,7 @@ async function startAuthorize(label?: string): Promise<{ ok: boolean; authUrl?: 
     label: label?.trim() || undefined,
   });
   const state = Buffer.from(statePayload, "utf8").toString("base64url");
-  const authUrl = getAuthorizationUrl(oauth, state);
+  const authUrl = getAuthorizationUrl(oauth, state, { scopes: scopesForSetupPreset(preset) });
 
   oauthBusy = true;
 
@@ -833,7 +836,8 @@ async function handleApi(
   if (req.method === "POST" && path === "/api/authorize") {
     const body = await readJson(req);
     const label = typeof body.label === "string" ? body.label : undefined;
-    const result = await startAuthorize(label);
+    const preset = body.preset === "quick" ? "quick" : "full";
+    const result = await startAuthorize(label, preset);
     sendJson(res, result.ok ? 200 : 400, result);
     return;
   }
