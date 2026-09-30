@@ -1,5 +1,14 @@
 import { google, gmail_v1 } from "googleapis";
 import type { OAuth2Client, JWT } from "google-auth-library";
+import {
+  collectAttachments,
+  type EmailAttachmentMeta,
+} from "./gmailAttachments.js";
+import {
+  buildRawEmail,
+  encodeRawMessage,
+  type ComposeEmailInput,
+} from "./gmailMime.js";
 
 export interface EmailSummary {
   id: string;
@@ -17,6 +26,7 @@ export interface EmailDetail extends EmailSummary {
   bodyHtml?: string;
   messageIdHeader?: string;
   references?: string;
+  attachments: EmailAttachmentMeta[];
 }
 
 function decodeBase64Url(data: string): string {
@@ -128,29 +138,18 @@ export async function getMessage(
     bodyHtml: body.html,
     messageIdHeader: extractHeader(headers, "Message-ID") || undefined,
     references: extractHeader(headers, "References") || undefined,
+    attachments: collectAttachments(message.payload),
   };
 }
 
-function encodeRawMessage(rawMessage: string): string {
-  return Buffer.from(rawMessage)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-/** Compose and send a new Gmail message (not a reply). */
-export async function sendMessage(
-  auth: OAuth2Client | JWT,
-  options: {
-    to: string;
-    subject: string;
-    body: string;
-    cc?: string;
-    bcc?: string;
-  },
-): Promise<{ id: string; threadId: string }> {
-  const gmail = await createGmailClient(auth);
+function buildOutboundHeaders(options: {
+  to: string;
+  subject: string;
+  cc?: string;
+  bcc?: string;
+  inReplyTo?: string;
+  references?: string;
+}): string[] {
   const headers = [
     `To: ${options.to.trim()}`,
     `Subject: ${options.subject.trim()}`,
@@ -163,7 +162,98 @@ export async function sendMessage(
   if (options.bcc?.trim()) {
     headers.splice(1, 0, `Bcc: ${options.bcc.trim()}`);
   }
+  if (options.inReplyTo?.trim()) {
+    headers.push(`In-Reply-To: ${options.inReplyTo.trim()}`);
+  }
+  if (options.references?.trim()) {
+    headers.push(`References: ${options.references.trim()}`);
+  }
+  return headers;
+}
 
+/** Save a new outbound message as a Gmail draft (does not send). */
+export async function createDraftMessage(
+  auth: OAuth2Client | JWT,
+  options: ComposeEmailInput,
+): Promise<{ draftId: string; messageId: string; threadId: string }> {
+  const gmail = await createGmailClient(auth);
+  const created = await gmail.users.drafts.create({
+    userId: "me",
+    requestBody: {
+      message: {
+        raw: encodeRawMessage(buildRawEmail(options)),
+      },
+    },
+  });
+
+  return {
+    draftId: created.data.id ?? "",
+    messageId: created.data.message?.id ?? "",
+    threadId: created.data.message?.threadId ?? "",
+  };
+}
+
+/** Save a reply as a Gmail draft in the original thread (does not send). */
+export async function createDraftReply(
+  auth: OAuth2Client | JWT,
+  options: {
+    messageId: string;
+    body: string;
+    replyAll?: boolean;
+  },
+): Promise<{ draftId: string; messageId: string; threadId: string }> {
+  const gmail = await createGmailClient(auth);
+  const original = await getMessage(auth, options.messageId);
+
+  const profile = await gmail.users.getProfile({ userId: "me" });
+  const myEmail = profile.data.emailAddress ?? "";
+
+  const to = options.replyAll ? original.to || original.from : original.from;
+  const subject = original.subject.startsWith("Re:")
+    ? original.subject
+    : `Re: ${original.subject}`;
+  const references = [original.references, original.messageIdHeader]
+    .filter(Boolean)
+    .join(" ");
+
+  const headers = buildOutboundHeaders({
+    to,
+    subject,
+    cc: options.replyAll && myEmail ? original.to : undefined,
+    inReplyTo: original.messageIdHeader,
+    references,
+  });
+
+  const rawMessage = `${headers.join("\r\n")}\r\n\r\n${options.body}`;
+  const created = await gmail.users.drafts.create({
+    userId: "me",
+    requestBody: {
+      message: {
+        raw: encodeRawMessage(rawMessage),
+        threadId: original.threadId,
+      },
+    },
+  });
+
+  return {
+    draftId: created.data.id ?? "",
+    messageId: created.data.message?.id ?? "",
+    threadId: created.data.message?.threadId ?? original.threadId,
+  };
+}
+
+export async function sendMessage(
+  auth: OAuth2Client | JWT,
+  options: {
+    to: string;
+    subject: string;
+    body: string;
+    cc?: string;
+    bcc?: string;
+  },
+): Promise<{ id: string; threadId: string }> {
+  const gmail = await createGmailClient(auth);
+  const headers = buildOutboundHeaders(options);
   const rawMessage = `${headers.join("\r\n")}\r\n\r\n${options.body}`;
   const sent = await gmail.users.messages.send({
     userId: "me",
@@ -197,18 +287,15 @@ export async function replyToMessage(
     ? original.subject
     : `Re: ${original.subject}`;
 
-  const headers = [
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `In-Reply-To: ${original.messageIdHeader ?? ""}`,
-    `References: ${[original.references, original.messageIdHeader].filter(Boolean).join(" ")}`,
-    "Content-Type: text/plain; charset=utf-8",
-    "MIME-Version: 1.0",
-  ];
-
-  if (options.replyAll && myEmail) {
-    headers.splice(1, 0, `Cc: ${original.to}`);
-  }
+  const headers = buildOutboundHeaders({
+    to,
+    subject,
+    cc: options.replyAll && myEmail ? original.to : undefined,
+    inReplyTo: original.messageIdHeader,
+    references: [original.references, original.messageIdHeader]
+      .filter(Boolean)
+      .join(" "),
+  });
 
   const rawMessage = `${headers.join("\r\n")}\r\n\r\n${options.body}`;
 

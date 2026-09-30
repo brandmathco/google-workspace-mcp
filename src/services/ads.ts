@@ -26,6 +26,9 @@ type MutateOp = MutateOperation<
   | resources.IAdGroupAd
   | resources.IAdGroupCriterion
   | resources.ICampaignCriterion
+  | resources.IAssetGroup
+  | resources.IAssetGroupAsset
+  | resources.IAssetGroupSignal
 >;
 
 export type KeywordMatchTypeInput = "EXACT" | "PHRASE" | "BROAD";
@@ -1106,5 +1109,593 @@ export async function adsApplySearchTargeting(input: ApplySearchTargetingInput) 
     resourceNames: summarizeMutateResponse(response),
     message:
       "Applied Search targeting (locations / keywords / negatives / audience observation). Campaign status unchanged.",
+  };
+}
+
+type DemographicAgeBand =
+  | "18_24"
+  | "25_34"
+  | "35_44"
+  | "45_54"
+  | "55_64"
+  | "65_UP"
+  | "UNDETERMINED";
+
+function resolveAgeRangeType(ageBand: DemographicAgeBand): enums.AgeRangeType {
+  switch (ageBand) {
+    case "18_24":
+      return enums.AgeRangeType.AGE_RANGE_18_24;
+    case "25_34":
+      return enums.AgeRangeType.AGE_RANGE_25_34;
+    case "35_44":
+      return enums.AgeRangeType.AGE_RANGE_35_44;
+    case "45_54":
+      return enums.AgeRangeType.AGE_RANGE_45_54;
+    case "55_64":
+      return enums.AgeRangeType.AGE_RANGE_55_64;
+    case "65_UP":
+      return enums.AgeRangeType.AGE_RANGE_65_UP;
+    case "UNDETERMINED":
+      return enums.AgeRangeType.AGE_RANGE_UNDETERMINED;
+    default: {
+      const _exhaustive: never = ageBand;
+      throw new Error(`Unsupported age band: ${_exhaustive}`);
+    }
+  }
+}
+
+const ALL_AGE_BANDS: DemographicAgeBand[] = [
+  "18_24",
+  "25_34",
+  "35_44",
+  "45_54",
+  "55_64",
+  "65_UP",
+  "UNDETERMINED",
+];
+
+export interface ApplyDemographicTargetingInput {
+  customerId?: string;
+  accountEmail?: string;
+  loginCustomerId?: string;
+  dryRun?: boolean;
+  campaignIds: string[];
+  /** Inclusive min age (e.g. 35). */
+  minAge?: number;
+  /** Inclusive max age (e.g. 54). */
+  maxAge?: number;
+  /** Keep unknown/undetermined age when true (default true). */
+  includeUnknownAge?: boolean;
+  /** All genders when true (default true). Set false to require explicit genders. */
+  allGenders?: boolean;
+}
+
+/**
+ * Exclude age bands outside min/max on Search + PMax campaigns.
+ * Google Ads uses negative age-range criteria to narrow targeting.
+ */
+export async function adsApplyDemographicTargeting(input: ApplyDemographicTargetingInput) {
+  const dryRun = resolveDryRun(input.dryRun);
+  const customerId = resolveCustomerId(input.customerId);
+  const minAge = input.minAge ?? 35;
+  const maxAge = input.maxAge ?? 54;
+  const includeUnknownAge = input.includeUnknownAge ?? true;
+  const allGenders = input.allGenders ?? true;
+
+  const campaignIds = input.campaignIds
+    .map((id) => id.replace(/\D/g, ""))
+    .filter((id) => id.length > 0);
+  if (campaignIds.length === 0) {
+    throw new Error("campaignIds is required.");
+  }
+
+  const includeBands = new Set<DemographicAgeBand>();
+  for (const band of ALL_AGE_BANDS) {
+    if (band === "UNDETERMINED") {
+      if (includeUnknownAge) includeBands.add(band);
+      continue;
+    }
+    const [loRaw, hiRaw] = band.split("_");
+    const lo = loRaw === "65" ? 65 : Number(loRaw);
+    const hi = hiRaw === "UP" ? 120 : Number(hiRaw);
+    if (hi >= minAge && lo <= maxAge) {
+      includeBands.add(band);
+    }
+  }
+
+  const excludeBands = ALL_AGE_BANDS.filter((band) => !includeBands.has(band));
+
+  const { customer, accountEmail } = await getAdsCustomer({
+    customerId,
+    accountEmail: input.accountEmail,
+    loginCustomerId: input.loginCustomerId,
+  });
+
+  const operations: MutateOp[] = [];
+  const planned: {
+    campaignId: string;
+    excludedAgeBands: DemographicAgeBand[];
+    genders: string;
+  }[] = [];
+
+  for (const campaignId of campaignIds) {
+    const campaignRn = ResourceNames.campaign(customerId, campaignId);
+    planned.push({
+      campaignId,
+      excludedAgeBands: excludeBands,
+      genders: allGenders ? "all (no gender exclusions)" : "custom (not implemented)",
+    });
+
+    for (const band of excludeBands) {
+      operations.push({
+        entity: "campaign_criterion",
+        operation: "create",
+        resource: {
+          campaign: campaignRn,
+          age_range: { type: resolveAgeRangeType(band) },
+          negative: true,
+        } as resources.ICampaignCriterion,
+      });
+    }
+  }
+
+  const preview = {
+    dryRun,
+    accountEmail,
+    customerId,
+    minAge,
+    maxAge,
+    includeUnknownAge,
+    planned,
+    operationCount: operations.length,
+  };
+
+  if (operations.length === 0) {
+    return {
+      ...preview,
+      applied: false,
+      message: "Nothing to change — all age bands already included.",
+    };
+  }
+
+  if (dryRun) {
+    return {
+      ...preview,
+      applied: false,
+      message:
+        "Dry run only — demographic targeting not written. Re-call with dryRun: false after human approval.",
+    };
+  }
+
+  const response = await customer.mutateResources(operations);
+  return {
+    ...preview,
+    applied: true,
+    resourceNames: summarizeMutateResponse(response),
+    message:
+      "Applied demographic age exclusions. Campaign status unchanged. Genders left unrestricted (all).",
+  };
+}
+
+function resolveAssetFieldType(
+  fieldType: string,
+): enums.AssetFieldType {
+  switch (fieldType) {
+    case "HEADLINE":
+      return enums.AssetFieldType.HEADLINE;
+    case "LONG_HEADLINE":
+      return enums.AssetFieldType.LONG_HEADLINE;
+    case "DESCRIPTION":
+      return enums.AssetFieldType.DESCRIPTION;
+    case "BUSINESS_NAME":
+      return enums.AssetFieldType.BUSINESS_NAME;
+    case "MARKETING_IMAGE":
+      return enums.AssetFieldType.MARKETING_IMAGE;
+    case "SQUARE_MARKETING_IMAGE":
+      return enums.AssetFieldType.SQUARE_MARKETING_IMAGE;
+    case "PORTRAIT_MARKETING_IMAGE":
+      return enums.AssetFieldType.PORTRAIT_MARKETING_IMAGE;
+    case "LOGO":
+      return enums.AssetFieldType.LOGO;
+    case "YOUTUBE_VIDEO":
+      return enums.AssetFieldType.YOUTUBE_VIDEO;
+    default: {
+      throw new Error(`Unsupported asset fieldType: ${fieldType}`);
+    }
+  }
+}
+
+export interface PerformanceMaxTextAssetInput {
+  text: string;
+  fieldType: "HEADLINE" | "LONG_HEADLINE" | "DESCRIPTION" | "BUSINESS_NAME";
+}
+
+export interface TightenPerformanceMaxInput {
+  customerId?: string;
+  accountEmail?: string;
+  loginCustomerId?: string;
+  dryRun?: boolean;
+  campaignId: string;
+  assetGroupId: string;
+  /** Replace campaign name when set. */
+  campaignName?: string;
+  /** Replace asset group name when set. */
+  assetGroupName?: string;
+  /** Final URL(s) for the asset group (e.g. contact / free consultation page). */
+  finalUrls?: string[];
+  /** Locations to keep/add (others positive locations are removed when replaceLocations=true). */
+  geoTargetConstantIds?: string[];
+  /** When true (default if geoTargetConstantIds provided), remove existing positive locations not in the keep list. */
+  replaceLocations?: boolean;
+  /** PMax search themes (asset_group_signal). */
+  searchThemes?: string[];
+  /** Text assets to create and link. */
+  textAssets?: PerformanceMaxTextAssetInput[];
+  /** Case-insensitive exact text match — unlink matching HEADLINE/DESCRIPTION/LONG_HEADLINE assets. */
+  removeTextAssets?: string[];
+  /** Optional landscape (1.91:1) marketing image URL to upload + link. */
+  landscapeImageUrl?: string;
+  landscapeImageName?: string;
+  /** Optional square marketing image URL. */
+  squareImageUrl?: string;
+  squareImageName?: string;
+}
+
+/**
+ * Tighten a Performance Max asset group: geo, search themes, copy, final URL, images.
+ * Does not enable spend. dryRun defaults to true.
+ */
+export async function adsTightenPerformanceMax(input: TightenPerformanceMaxInput) {
+  const dryRun = resolveDryRun(input.dryRun);
+  const customerId = resolveCustomerId(input.customerId);
+  const campaignId = input.campaignId.replace(/\D/g, "");
+  const assetGroupId = input.assetGroupId.replace(/\D/g, "");
+  if (!campaignId) throw new Error("campaignId is required.");
+  if (!assetGroupId) throw new Error("assetGroupId is required.");
+
+  const campaignRn = ResourceNames.campaign(customerId, campaignId);
+  const assetGroupRn = ResourceNames.assetGroup(customerId, assetGroupId);
+  const geoIds = (input.geoTargetConstantIds ?? []).map(normalizeGeoTargetConstant);
+  const replaceLocations = input.replaceLocations ?? geoIds.length > 0;
+  const searchThemes = [...new Set((input.searchThemes ?? []).map((t) => t.trim()).filter(Boolean))];
+  const textAssetsToAdd = (input.textAssets ?? [])
+    .map((a) => ({
+      text: a.text.trim(),
+      fieldType: a.fieldType,
+    }))
+    .filter((a) => a.text.length > 0);
+  const removeTexts = new Set(
+    (input.removeTextAssets ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean),
+  );
+  const finalUrls = (input.finalUrls ?? [])
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\//i.test(u));
+
+  for (const asset of textAssetsToAdd) {
+    const max =
+      asset.fieldType === "HEADLINE"
+        ? 30
+        : asset.fieldType === "BUSINESS_NAME"
+          ? 25
+          : 90;
+    if (asset.text.length > max) {
+      throw new Error(
+        `${asset.fieldType} exceeds ${max} chars: "${asset.text}" (${asset.text.length})`,
+      );
+    }
+  }
+
+  const { customer, accountEmail } = await getAdsCustomer({
+    customerId,
+    accountEmail: input.accountEmail,
+    loginCustomerId: input.loginCustomerId,
+  });
+
+  const existingLocationRows = await customer.query(`
+    SELECT
+      campaign_criterion.resource_name,
+      campaign_criterion.location.geo_target_constant,
+      campaign_criterion.negative
+    FROM campaign_criterion
+    WHERE campaign.id = ${campaignId}
+      AND campaign_criterion.type = 'LOCATION'
+      AND campaign_criterion.negative = FALSE
+  `);
+
+  const existingSignalRows =
+    searchThemes.length > 0
+      ? await customer.query(`
+          SELECT
+            asset_group_signal.resource_name,
+            asset_group_signal.search_theme.text
+          FROM asset_group_signal
+          WHERE asset_group.id = ${assetGroupId}
+        `)
+      : [];
+
+  const existingAssetRows =
+    textAssetsToAdd.length > 0 || removeTexts.size > 0
+      ? await customer.query(`
+          SELECT
+            asset_group_asset.resource_name,
+            asset_group_asset.field_type,
+            asset_group_asset.status,
+            asset.text_asset.text
+          FROM asset_group_asset
+          WHERE asset_group.id = ${assetGroupId}
+            AND asset_group_asset.status != 'REMOVED'
+            AND asset_group_asset.field_type IN ('HEADLINE', 'LONG_HEADLINE', 'DESCRIPTION', 'BUSINESS_NAME')
+        `)
+      : [];
+
+  const existingFieldRows = await customer.query(`
+    SELECT
+      asset_group_asset.field_type,
+      asset_group_asset.status
+    FROM asset_group_asset
+    WHERE asset_group.id = ${assetGroupId}
+      AND asset_group_asset.status != 'REMOVED'
+  `);
+
+  const existingLocations = new Map<string, string>();
+  for (const row of existingLocationRows) {
+    const geo = String(row.campaign_criterion?.location?.geo_target_constant ?? "");
+    const rn = String(row.campaign_criterion?.resource_name ?? "");
+    if (geo && rn) existingLocations.set(geo, rn);
+  }
+
+  const existingThemes = new Set(
+    existingSignalRows
+      .map((row) => String(row.asset_group_signal?.search_theme?.text ?? "").trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+  const existingTextKeys = new Set(
+    existingAssetRows.map((row) => {
+      const text = String(row.asset?.text_asset?.text ?? "")
+        .trim()
+        .toLowerCase();
+      const fieldType = String(row.asset_group_asset?.field_type ?? "");
+      return `${fieldType}|${text}`;
+    }),
+  );
+
+  const hasLandscape = existingFieldRows.some((row) => {
+    const ft = String(row.asset_group_asset?.field_type ?? "");
+    return ft === "MARKETING_IMAGE" || ft === String(enums.AssetFieldType.MARKETING_IMAGE);
+  });
+
+  const operations: MutateOp[] = [];
+  const planned = {
+    campaignRenamed: "" as string,
+    assetGroupUpdated: false,
+    locationsRemoved: [] as string[],
+    locationsAdded: [] as string[],
+    searchThemesAdded: [] as string[],
+    textAssetsRemoved: [] as string[],
+    textAssetsAdded: [] as string[],
+    imagesUploaded: [] as string[],
+  };
+
+  if (input.campaignName?.trim() || geoIds.length > 0) {
+    operations.push({
+      entity: "campaign",
+      operation: "update",
+      resource: {
+        resource_name: campaignRn,
+        ...(input.campaignName?.trim() ? { name: input.campaignName.trim() } : {}),
+        // Required before location criterion mutates (Google Ads EU political ads declaration).
+        contains_eu_political_advertising:
+          enums.EuPoliticalAdvertisingStatus.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING,
+        ...(geoIds.length > 0
+          ? {
+              geo_target_type_setting: {
+                positive_geo_target_type: enums.PositiveGeoTargetType.PRESENCE,
+                negative_geo_target_type: enums.NegativeGeoTargetType.PRESENCE,
+              },
+            }
+          : {}),
+      },
+    });
+    if (input.campaignName?.trim()) {
+      planned.campaignRenamed = input.campaignName.trim();
+    }
+  }
+
+  if (input.assetGroupName?.trim()) {
+    operations.push({
+      entity: "asset_group",
+      operation: "update",
+      resource: {
+        resource_name: assetGroupRn,
+        name: input.assetGroupName.trim(),
+      },
+    });
+    planned.assetGroupUpdated = true;
+  }
+
+  if (finalUrls.length > 0) {
+    // final_urls are immutable on many asset groups after create — surface clearly.
+    planned.assetGroupUpdated = planned.assetGroupUpdated || false;
+  }
+
+  if (replaceLocations) {
+    const keep = new Set(geoIds);
+    for (const [geo, rn] of existingLocations) {
+      if (keep.has(geo)) continue;
+      operations.push({
+        entity: "campaign_criterion",
+        operation: "remove",
+        resource: rn as unknown as resources.ICampaignCriterion,
+      });
+      planned.locationsRemoved.push(geo);
+    }
+  }
+
+  for (const geo of geoIds) {
+    if (existingLocations.has(geo)) continue;
+    operations.push({
+      entity: "campaign_criterion",
+      operation: "create",
+      resource: {
+        campaign: campaignRn,
+        location: { geo_target_constant: geo },
+      },
+    });
+    planned.locationsAdded.push(geo);
+  }
+
+  for (const theme of searchThemes) {
+    if (existingThemes.has(theme.toLowerCase())) continue;
+    operations.push({
+      entity: "asset_group_signal",
+      operation: "create",
+      resource: {
+        asset_group: assetGroupRn,
+        search_theme: { text: theme },
+      },
+    });
+    planned.searchThemesAdded.push(theme);
+    existingThemes.add(theme.toLowerCase());
+  }
+
+  for (const row of existingAssetRows) {
+    const text = String(row.asset?.text_asset?.text ?? "").trim();
+    const rn = String(row.asset_group_asset?.resource_name ?? "");
+    if (!rn || !text) continue;
+    if (!removeTexts.has(text.toLowerCase())) continue;
+    operations.push({
+      entity: "asset_group_asset",
+      operation: "remove",
+      resource: rn as unknown as resources.IAssetGroupAsset,
+    });
+    planned.textAssetsRemoved.push(text);
+  }
+
+  let tempAssetId = -1;
+  for (const asset of textAssetsToAdd) {
+    const fieldEnum = resolveAssetFieldType(asset.fieldType);
+    const key = `${fieldEnum}|${asset.text.toLowerCase()}`;
+    // Also match string field type labels from query results.
+    const altKey = `${asset.fieldType}|${asset.text.toLowerCase()}`;
+    if (existingTextKeys.has(key) || existingTextKeys.has(altKey)) continue;
+
+    const tempRn = ResourceNames.asset(customerId, tempAssetId);
+    tempAssetId -= 1;
+    operations.push({
+      entity: "asset",
+      operation: "create",
+      resource: {
+        resource_name: tempRn,
+        type: enums.AssetType.TEXT,
+        text_asset: { text: asset.text },
+      },
+    });
+    operations.push({
+      entity: "asset_group_asset",
+      operation: "create",
+      resource: {
+        asset_group: assetGroupRn,
+        asset: tempRn,
+        field_type: fieldEnum,
+      },
+    });
+    planned.textAssetsAdded.push(`${asset.fieldType}: ${asset.text}`);
+    existingTextKeys.add(altKey);
+  }
+
+  async function queueImage(options: {
+    url: string;
+    name: string;
+    fieldType: "MARKETING_IMAGE" | "SQUARE_MARKETING_IMAGE";
+    skipIfPresent: boolean;
+  }) {
+    if (options.skipIfPresent && options.fieldType === "MARKETING_IMAGE" && hasLandscape) {
+      return;
+    }
+    const res = await fetch(options.url);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch ${options.fieldType} image (${res.status}).`);
+    }
+    const data = Buffer.from(await res.arrayBuffer());
+    if (data.byteLength < 100 || data.byteLength > 5_000_000) {
+      throw new Error(`${options.fieldType} image must be between 100 bytes and 5MB.`);
+    }
+    const tempRn = ResourceNames.asset(customerId, tempAssetId);
+    tempAssetId -= 1;
+    operations.push({
+      entity: "asset",
+      operation: "create",
+      resource: {
+        resource_name: tempRn,
+        name: options.name,
+        type: enums.AssetType.IMAGE,
+        image_asset: { data: new Uint8Array(data) },
+      },
+    });
+    operations.push({
+      entity: "asset_group_asset",
+      operation: "create",
+      resource: {
+        asset_group: assetGroupRn,
+        asset: tempRn,
+        field_type: resolveAssetFieldType(options.fieldType),
+      },
+    });
+    planned.imagesUploaded.push(`${options.fieldType}: ${options.name}`);
+  }
+
+  if (input.landscapeImageUrl?.trim()) {
+    await queueImage({
+      url: input.landscapeImageUrl.trim(),
+      name: input.landscapeImageName?.trim() || "Landscape marketing image",
+      fieldType: "MARKETING_IMAGE",
+      // Only skip when a true landscape MARKETING_IMAGE already exists (not portrait/square).
+      skipIfPresent: hasLandscape,
+    });
+  }
+  if (input.squareImageUrl?.trim()) {
+    await queueImage({
+      url: input.squareImageUrl.trim(),
+      name: input.squareImageName?.trim() || "Square marketing image",
+      fieldType: "SQUARE_MARKETING_IMAGE",
+      skipIfPresent: false,
+    });
+  }
+
+  const preview = {
+    dryRun,
+    accountEmail,
+    customerId,
+    campaignId,
+    assetGroupId,
+    planned,
+    operationCount: operations.length,
+  };
+
+  if (operations.length === 0) {
+    return {
+      ...preview,
+      applied: false,
+      message: "Nothing to change — Performance Max asset group already matches the request.",
+    };
+  }
+
+  if (dryRun) {
+    return {
+      ...preview,
+      applied: false,
+      message:
+        "Dry run only — Performance Max changes not written. Re-call with dryRun: false after human approval.",
+    };
+  }
+
+  const response = await customer.mutateResources(operations);
+  return {
+    ...preview,
+    applied: true,
+    resourceNames: summarizeMutateResponse(response),
+    message:
+      "Applied Performance Max tighten (geo / search themes / copy / images / final URL). Campaign status unchanged.",
   };
 }

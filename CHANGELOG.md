@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] — 2026-09-29
+
+### Added
+
+- **AdSense** read-only tools: `adsense_list_accounts`, `adsense_list_sites`, `adsense_list_ad_clients`, `adsense_list_ad_units`, `adsense_list_payments`, `adsense_generate_report`
+- REST `POST /api/adsense` (Bearer) for `adsense_*` tools
+- OAuth scope `https://www.googleapis.com/auth/adsense.readonly` (re-authorize all accounts; enable **AdSense Management API** in Google Cloud)
+- Optional `GOOGLE_ADSENSE_DEFAULT_ACCOUNT` (`pub-…`)
+- **AI Commerce Search** (Retail API, formerly Vertex AI Search for commerce) read-only tools: `commerce_list_serving_configs`, `commerce_search`, `commerce_list_products`, `commerce_get_product`
+- REST `POST /api/commerce` (Bearer) for `commerce_*` tools
+- OAuth scope `https://www.googleapis.com/auth/cloud-platform` so AI Commerce Search can run. Re-authorize the Google account that can view that Cloud project. The project defaults to the number already on `GOOGLE_OAUTH_CLIENT_ID` (override with `GOOGLE_COMMERCE_PROJECT_ID`)
+
 ## [1.10.1] — 2026-09-04
 
 ### Added

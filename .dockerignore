@@ -6,3 +6,6 @@ dist
 .git
 *.log
 .DS_Store
+dist-installers
+packaging
+desktop

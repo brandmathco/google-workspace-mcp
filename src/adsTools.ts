@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  adsApplyDemographicTargeting,
   adsApplySearchTargeting,
   adsCreateDemandGenVideoCampaign,
   adsCreateResponsiveSearchAd,
@@ -8,6 +9,7 @@ import {
   adsListCampaigns,
   adsSearch,
   adsSetCampaignStatus,
+  adsTightenPerformanceMax,
   adsUpdateCampaignBudget,
   adsUploadImageAsset,
 } from "./services/ads.js";
@@ -335,6 +337,106 @@ export const adsTools = [
       required: ["campaignId", "adGroupId"],
     },
   },
+  {
+    name: "ads_apply_demographic_targeting",
+    description:
+      "Exclude age bands outside min/max on one or more campaigns (e.g. ages 35–54 with unknown included). Uses negative age-range criteria. All genders by default. dryRun defaults to true. Does not enable spend.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...customerIdProperty,
+        ...loginCustomerIdProperty,
+        ...dryRunProperty,
+        campaignIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Numeric campaign IDs (Search, PMax, etc.)",
+        },
+        minAge: {
+          type: "number",
+          description: "Inclusive minimum age (default 35)",
+        },
+        maxAge: {
+          type: "number",
+          description: "Inclusive maximum age (default 54)",
+        },
+        includeUnknownAge: {
+          type: "boolean",
+          description: "Keep unknown/undetermined age (default true)",
+        },
+        allGenders: {
+          type: "boolean",
+          description: "No gender exclusions when true (default true)",
+        },
+      },
+      required: ["campaignIds"],
+    },
+  },
+  {
+    name: "ads_tighten_performance_max",
+    description:
+      "Tighten a Performance Max asset group: replace geo, add search themes, refresh headlines/descriptions, set final URL, upload landscape/square images. dryRun defaults to true. Does not enable spend.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ...customerIdProperty,
+        ...loginCustomerIdProperty,
+        ...dryRunProperty,
+        campaignId: { type: "string", description: "Numeric campaign ID" },
+        assetGroupId: { type: "string", description: "Numeric asset group ID" },
+        campaignName: { type: "string", description: "Optional rename" },
+        assetGroupName: { type: "string", description: "Optional asset group rename" },
+        finalUrls: {
+          type: "array",
+          items: { type: "string" },
+          description: "Landing page URL(s) for the asset group",
+        },
+        geoTargetConstantIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Locations to keep/add (e.g. 1001909 Kelowna, 20114 British Columbia)",
+        },
+        replaceLocations: {
+          type: "boolean",
+          description: "Remove existing positive locations not in geoTargetConstantIds (default true when geos provided)",
+        },
+        searchThemes: {
+          type: "array",
+          items: { type: "string" },
+          description: "PMax search themes (intent signals)",
+        },
+        textAssets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              fieldType: {
+                type: "string",
+                enum: ["HEADLINE", "LONG_HEADLINE", "DESCRIPTION", "BUSINESS_NAME"],
+              },
+            },
+            required: ["text", "fieldType"],
+          },
+        },
+        removeTextAssets: {
+          type: "array",
+          items: { type: "string" },
+          description: "Exact text of weak headlines/descriptions to unlink",
+        },
+        landscapeImageUrl: {
+          type: "string",
+          description: "https URL for landscape (1.91:1) marketing image",
+        },
+        landscapeImageName: { type: "string" },
+        squareImageUrl: { type: "string" },
+        squareImageName: { type: "string" },
+      },
+      required: ["campaignId", "assetGroupId"],
+    },
+  },
 ] as const;
 
 const accountEmailSchema = z.string().email().optional();
@@ -502,6 +604,59 @@ export async function handleAdsTool(
         })
         .parse(args ?? {});
       return jsonResult(await adsApplySearchTargeting(input));
+    }
+    case "ads_apply_demographic_targeting": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          customerId: customerIdSchema,
+          loginCustomerId: loginCustomerIdSchema,
+          dryRun: dryRunSchema,
+          campaignIds: z.array(z.string().min(1)).min(1),
+          minAge: z.number().int().min(18).max(65).optional(),
+          maxAge: z.number().int().min(18).max(120).optional(),
+          includeUnknownAge: z.boolean().optional(),
+          allGenders: z.boolean().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await adsApplyDemographicTargeting(input));
+    }
+    case "ads_tighten_performance_max": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          customerId: customerIdSchema,
+          loginCustomerId: loginCustomerIdSchema,
+          dryRun: dryRunSchema,
+          campaignId: z.string().min(1),
+          assetGroupId: z.string().min(1),
+          campaignName: z.string().optional(),
+          assetGroupName: z.string().optional(),
+          finalUrls: z.array(z.string()).optional(),
+          geoTargetConstantIds: z.array(z.string()).optional(),
+          replaceLocations: z.boolean().optional(),
+          searchThemes: z.array(z.string()).optional(),
+          textAssets: z
+            .array(
+              z.object({
+                text: z.string().min(1),
+                fieldType: z.enum([
+                  "HEADLINE",
+                  "LONG_HEADLINE",
+                  "DESCRIPTION",
+                  "BUSINESS_NAME",
+                ]),
+              }),
+            )
+            .optional(),
+          removeTextAssets: z.array(z.string()).optional(),
+          landscapeImageUrl: z.string().url().optional(),
+          landscapeImageName: z.string().optional(),
+          squareImageUrl: z.string().url().optional(),
+          squareImageName: z.string().optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await adsTightenPerformanceMax(input));
     }
     default:
       return null;

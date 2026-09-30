@@ -264,7 +264,7 @@ npm run authorize -- --hash-key=choose-a-long-random-string
 ```
 
 1. Open the URL printed in your terminal.
-2. Sign in and approve (see screenshots above). Consent includes Gmail, Calendar, Tasks, and Google Ads (`adwords`).
+2. Sign in and approve (see screenshots above). Consent includes Gmail, Calendar, Tasks, Google Ads (`adwords`), Analytics, AdSense (`adsense.readonly`), and Google Cloud (`cloud-platform`, used for AI Commerce Search).
 3. Refresh tokens saved to `~/.config/google-workspace-mcp/accounts.json` (one entry per Google account).
 
 Repeat the authorize command for each Google account you need. After upgrading to Ads support, **re-authorize** so refresh tokens pick up the new scope.
@@ -434,7 +434,7 @@ See **[SECURITY.md](./SECURITY.md)** and **[Public repository safety](#public-re
 - `MCP_API_KEY` protects the remote `/mcp` endpoint; generate a strong random value.
 - `AUTHORIZE_HASH_KEY` protects `/authorize`; required for both local `npm run authorize` and remote OAuth.
 - OAuth refresh tokens are stored locally at `~/.config/google-workspace-mcp/accounts.json` by default (or encrypted in your Supabase project when configured).
-- This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`) plus Calendar, Tasks, and Google Ads (`adwords`). Use a dedicated Google account or review scopes before connecting production mail/ads. Ads creates stay paused; see [docs/ADS_SAFETY.md](./docs/ADS_SAFETY.md).
+- This server requests modify access to Gmail (`gmail.modify`, `gmail.compose`) plus Calendar, Tasks, Google Ads (`adwords`), AdSense (`adsense.readonly`), and Google Cloud (`cloud-platform` for AI Commerce Search). Use a dedicated Google account or review scopes before connecting production mail/ads. Ads creates stay paused; see [docs/ADS_SAFETY.md](./docs/ADS_SAFETY.md).
 - **Review AI-drafted replies** before sending to clients.
 - Setup Wizard: Ads developer token fields are optional; enabling live spend is never turned on by the wizard.
 

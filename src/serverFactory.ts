@@ -25,6 +25,8 @@ import { createCalendarEvent, listUpcomingEvents } from "./services/calendar.js"
 import { createTask, listTasks } from "./services/tasks.js";
 import { adsTools, handleAdsTool } from "./adsTools.js";
 import { analyticsTools, handleAnalyticsTool } from "./analyticsTools.js";
+import { adsenseTools, handleAdsenseTool } from "./adsenseTools.js";
+import { commerceTools, handleCommerceTool } from "./commerceTools.js";
 import { tagManagerTools, handleTagManagerTool } from "./tagManagerTools.js";
 import { linkedinTools, handleLinkedInTool } from "./linkedinTools.js";
 
@@ -356,6 +358,8 @@ const tools = [
   },
   ...adsTools,
   ...analyticsTools,
+  ...adsenseTools,
+  ...commerceTools,
   ...tagManagerTools,
   ...linkedinTools,
 ] as const;
@@ -528,7 +532,7 @@ export function createGoogleWorkspaceMcpServer(): Server {
   const server = new Server(
     {
       name: "google-workspace-mcp",
-      version: "1.10.0",
+      version: "1.11.0",
     },
     {
       capabilities: {
@@ -550,6 +554,12 @@ export function createGoogleWorkspaceMcpServer(): Server {
 
       const analyticsResult = await handleAnalyticsTool(name, args);
       if (analyticsResult) return analyticsResult;
+
+      const adsenseResult = await handleAdsenseTool(name, args);
+      if (adsenseResult) return adsenseResult;
+
+      const commerceResult = await handleCommerceTool(name, args);
+      if (commerceResult) return commerceResult;
 
       const tagManagerResult = await handleTagManagerTool(name, args);
       if (tagManagerResult) return tagManagerResult;

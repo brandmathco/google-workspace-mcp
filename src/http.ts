@@ -3,6 +3,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { ZodError } from "zod";
 import { handleAdsTool } from "./adsTools.js";
 import { handleAnalyticsTool } from "./analyticsTools.js";
+import { handleAdsenseTool } from "./adsenseTools.js";
+import { handleCommerceTool } from "./commerceTools.js";
 import { handleTagManagerTool } from "./tagManagerTools.js";
 import { handleLinkedInTool } from "./linkedinTools.js";
 import {
@@ -221,6 +223,59 @@ app.post("/api/analytics", requireApiKey, async (req, res) => {
     res.status(502).json({ error: message });
   }
 });
+
+function registerPrefixedToolRoute(
+  path: string,
+  prefix: string,
+  label: string,
+  handle: (
+    name: string,
+    args: unknown,
+  ) => Promise<{ content: Array<{ type: "text"; text: string }>; isError?: true } | null>,
+): void {
+  app.post(path, requireApiKey, async (req, res) => {
+    try {
+      const tool = typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+      if (!tool.startsWith(prefix)) {
+        res.status(400).json({ error: `Only ${prefix}* tools are allowed on ${path}` });
+        return;
+      }
+      const args =
+        req.body?.arguments && typeof req.body.arguments === "object" ? req.body.arguments : {};
+      const result = await handle(tool, args);
+      if (!result) {
+        res.status(404).json({ error: `Unknown ${label} tool: ${tool}` });
+        return;
+      }
+      const text = result.content?.[0]?.text ?? "";
+      const data = parseAdsToolContent(text);
+      if (result.isError) {
+        res.status(400).json({
+          error:
+            typeof data === "object" && data && "message" in data
+              ? String((data as { message: unknown }).message)
+              : text || `${label} tool error`,
+          data,
+        });
+        return;
+      }
+      res.json({ success: true, tool, data });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          error: error.errors.map((e) => e.message).join("; ") || "Invalid arguments",
+        });
+        return;
+      }
+      const message = error instanceof Error ? error.message : "Internal server error";
+      console.error(`POST ${path} error:`, error);
+      res.status(502).json({ error: message });
+    }
+  });
+}
+
+registerPrefixedToolRoute("/api/adsense", "adsense_", "AdSense", handleAdsenseTool);
+registerPrefixedToolRoute("/api/commerce", "commerce_", "Commerce", handleCommerceTool);
 
 app.post("/api/tagmanager", requireApiKey, async (req, res) => {
   try {
