@@ -5,93 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Google Workspace MCP Setup — BrandMatchGrowth</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400&family=Instrument+Serif:ital@0;1&display=swap"
+    />
     <link rel="stylesheet" href="/wizard.css" />
   </head>
-  <body>
-    <div class="shell">
-      <div class="brand-bar">
-        <a
-          class="brand-link"
-          href="https://www.brandmatchgrowth.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            class="brand-logo"
-            src="/brandmatchgrowth-logo.svg"
-            alt="BrandMatchGrowth"
-            width="280"
-            height="54"
-          />
+  <body class="mode-quick">
+    <div class="backdrop">
+    <div class="app">
+      <header class="topbar">
+        <a class="brand" href="https://www.brandmatchgrowth.com/" target="_blank" rel="noopener noreferrer">
+          <img class="brand-logo" src="/brandmatchgrowth-logo.svg" alt="BrandMatchGrowth" />
         </a>
-        <a
-          class="brand-site"
-          href="https://www.brandmatchgrowth.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-          >brandmatchgrowth.com</a
-        >
-      </div>
-
-      <header class="hero">
-        <p class="eyebrow">BrandMatchGrowth · Google Workspace MCP</p>
-        <h1>Setup Wizard</h1>
-        <p class="lede" id="ledeQuick">
-          Five short screens. Cursor, this computer, your Google keys, sign in, then finish.
-          Gmail, Calendar, and Tasks. Keys stay on this computer.
-        </p>
-        <p class="lede hidden" id="ledeFull">
-          Advanced covers Ads, Analytics, AdSense, AI Commerce Search, Supabase, and an optional Fly.io
-          server. Secrets stay on this computer (or Fly secrets) — never in the public GitHub repo.
-        </p>
-        <div class="mode-switch" role="radiogroup" aria-label="Setup style">
-          <button type="button" class="mode active" id="modeQuick" aria-checked="true">Quick setup</button>
-          <button type="button" class="mode" id="modeFull" aria-checked="false">Advanced</button>
-        </div>
-        <p class="meta" id="versionLine">Checking your computer…</p>
+        <span class="kicker" id="kicker">Google Workspace MCP</span>
       </header>
-
-      <nav class="steps" aria-label="Setup steps">
-        <button type="button" class="step active" data-step="1">1. Cursor</button>
-        <button type="button" class="step" data-step="2" id="stepBtn2">2. Ready</button>
-        <button type="button" class="step" data-step="3">3. Google</button>
-        <button type="button" class="step" data-step="4" data-advanced>4. Supabase</button>
-        <button type="button" class="step" data-step="5" data-quick-label="4. Connect" data-full-label="5. Accounts">5. Accounts</button>
-        <button type="button" class="step" data-step="6" data-advanced>6. Fly.io</button>
-        <button type="button" class="step" data-step="7" data-quick-label="5. Finish" data-full-label="7. Finish">7. Finish</button>
-      </nav>
-
-      <main>
+      <div class="workspace">
+        <aside class="rail">
+          <div class="mode-switch" role="radiogroup" aria-label="Setup style">
+            <button type="button" class="mode active" id="modeQuick" aria-checked="true">Quick setup</button>
+            <button type="button" class="mode" id="modeFull" aria-checked="false">Advanced</button>
+          </div>
+          <p class="lede" id="ledeQuick"></p>
+          <p class="lede hidden" id="ledeFull"></p>
+          <nav class="steps" aria-label="Setup steps">
+            <button type="button" class="step active" data-step="1"><span class="glyph" data-icon="cursor"></span><span class="num">1</span><span class="label">Cursor</span></button>
+            <button type="button" class="step" data-step="2" id="stepBtn2"><span class="glyph" data-icon="computer"></span><span class="num">2</span><span class="label">This computer</span></button>
+            <button type="button" class="step" data-step="3"><span class="glyph" data-icon="key"></span><span class="num">3</span><span class="label">Google keys</span></button>
+            <button type="button" class="step" data-step="5"><span class="glyph" data-icon="link"></span><span class="num">4</span><span class="label">Connect</span></button>
+            <button type="button" class="step" data-step="8"><span class="glyph" data-icon="tools"></span><span class="num">5</span><span class="label">Tools</span></button>
+            <button type="button" class="step" data-step="4" data-advanced><span class="glyph" data-icon="database"></span><span class="num">5</span><span class="label">Supabase</span></button>
+            <button type="button" class="step" data-step="6" data-advanced><span class="glyph" data-icon="cloud"></span><span class="num">6</span><span class="label">Fly.io</span></button>
+            <button type="button" class="step" data-step="7"><span class="glyph" data-icon="check"></span><span class="num">5</span><span class="label">Finish</span></button>
+            <button type="button" class="step" data-step="9"><span class="glyph" data-icon="shield"></span><span class="num">6</span><span class="label">Status</span></button>
+          </nav>
+          <p class="meta" id="versionLine">Checking your computer…</p>
+        </aside>
+      <main class="pane">
+        <figure class="step-art" id="stepArt">
+          <img id="stepPicture" src="/art/cursor.svg" alt="Illustrated Cursor window on a purple desk" />
+        </figure>
         <!-- 1 Cursor -->
         <section class="panel active" id="panel-1">
-          <h2>What is Cursor?</h2>
+          <h2>Start with Cursor</h2>
           <p>
-            <strong>Cursor</strong> is an AI editor. This setup lets it use your Gmail, Calendar,
-            and Tasks. Switch to Advanced if you also want Ads, Analytics, AdSense, or AI Commerce Search.
+            Cursor is an AI code editor you can also talk to in plain English. This setup lets it
+            read and act on your Gmail, Calendar, and Tasks.
           </p>
-          <ul class="guide" style="list-style: disc">
-            <li>You chat in plain English inside Cursor</li>
-            <li>Cursor calls tools from this app (securely, with your Google login)</li>
-            <li>You stay in control — review drafts before sending mail or enabling ad spend</li>
-          </ul>
           <div class="actions">
             <button type="button" class="btn primary" data-open="https://cursor.com/download">
-              Open Cursor download page
+              Download Cursor
             </button>
-            <button type="button" class="btn" data-open="https://cursor.com/docs">
-              What is Cursor? (docs)
-            </button>
-            <button type="button" class="btn" id="btnToStep2">I have Cursor →</button>
+            <button type="button" class="btn" id="btnToStep2">I already have Cursor</button>
           </div>
-          <p class="fineprint">
-            Install Cursor on this computer first if you haven’t. You can finish the rest of this
-            wizard, then come back to Cursor at the end.
-          </p>
+          <div class="note">
+            <p>Nothing is sent anywhere yet. You will connect your Google account in a later step.</p>
+          </div>
         </section>
 
         <!-- 2 Ready -->
         <section class="panel" id="panel-2">
-          <h2 id="installTitle">Get this computer ready</h2>
+          <h2 id="installTitle">This computer</h2>
           <p id="installIntro">
             The desktop installer already includes Node.js. If you used GitHub Releases, you’re
             set. Developers cloning the repo may need a one-time install below.
@@ -108,7 +84,7 @@
 
         <!-- 3 Google -->
         <section class="panel" id="panel-3">
-          <h2>Google Cloud — create your keys</h2>
+          <h2>Google keys</h2>
           <p>
             Google requires <em>your</em> OAuth app so only you control access. Use the buttons —
             each opens the exact Google page. Take about 5–10 minutes the first time.
@@ -121,15 +97,20 @@
               Name it anything (e.g. <code>workspace-mcp</code>) → Create.
             </li>
             <li>
-              Enable APIs (click each → Enable):
+              Enable these Google APIs (open each, then Enable):
               <div class="actions">
-                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail API</button>
-                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com">Calendar API</button>
-                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tasks.googleapis.com">Tasks API</button>
-                <button type="button" class="btn tiny" data-advanced data-open="https://console.cloud.google.com/apis/library/googleads.googleapis.com">Google Ads API</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/gmail.googleapis.com">Gmail</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com">Calendar</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tasks.googleapis.com">Tasks</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com">Analytics</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/adsense.googleapis.com">AdSense</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/tagmanager.googleapis.com">Tag Manager</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/googleads.googleapis.com">Google Ads</button>
+                <button type="button" class="btn tiny" data-open="https://console.cloud.google.com/apis/library/retail.googleapis.com">Retail search</button>
               </div>
-              <p class="fineprint" data-advanced>
-                Google Ads is optional. Skip it if you only need mail / calendar / tasks.
+              <p class="fineprint">
+                Quick setup asks Google for mail, calendar, tasks, and read-only Analytics, AdSense, and Tag Manager.
+                Use Advanced, then connect again, for Google Ads, Tag Manager publishing, and Retail search.
               </p>
             </li>
             <li>
@@ -274,7 +255,7 @@
 
         <!-- 5 Accounts -->
         <section class="panel" id="panel-5">
-          <h2>Connect Google account(s)</h2>
+          <h2>Connect your Google account</h2>
           <p>
             Sign in with Google. Quick setup asks for Gmail, Calendar, and Tasks.
             Advanced also asks for Ads, Analytics, AdSense, and Cloud. Repeat for every account.
@@ -400,16 +381,69 @@
           </div>
         </section>
 
+
+        <!-- 8 Tools -->
+        <section class="panel" id="panel-8">
+          <h2>Other tools</h2>
+          <p>
+            GitHub, Fly, Netlify, GoDaddy, SendGrid, and QuickBooks can sit next to Google in Cursor.
+            Leave a row blank to skip it. The key you paste is written only into Cursor on this computer.
+            The installer other people download does not include your keys.
+          </p>
+          <form id="toolsForm" class="tool-list">
+            <div class="tool">
+              <label class="inline" for="tool-github">GitHub</label>
+              <p class="fineprint">Official GitHub MCP, read-only. Paste a personal access token from github.com/settings/tokens.</p>
+              <input id="tool-github" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="tool">
+              <label class="inline" for="tool-fly">Fly.io</label>
+              <p class="fineprint">BrandMatchGrowth Fly gateway. Use the gateway API key, not your Fly account token.</p>
+              <input id="tool-fly" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="tool">
+              <label class="inline" for="tool-netlify">Netlify</label>
+              <p class="fineprint">BrandMatchGrowth Netlify gateway. Use the gateway API key, not your Netlify token.</p>
+              <input id="tool-netlify" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="tool">
+              <label class="inline" for="tool-godaddy">GoDaddy</label>
+              <p class="fineprint">BrandMatchGrowth GoDaddy gateway API key.</p>
+              <input id="tool-godaddy" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="tool">
+              <label class="inline" for="tool-sendgrid">SendGrid</label>
+              <p class="fineprint">BrandMatchGrowth SendGrid gateway API key.</p>
+              <input id="tool-sendgrid" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="tool">
+              <label class="inline" for="tool-quickbooks">QuickBooks</label>
+              <p class="fineprint">BrandMatchGrowth QuickBooks gateway API key.</p>
+              <input id="tool-quickbooks" type="password" autocomplete="off" spellcheck="false" placeholder="Leave blank to skip" />
+            </div>
+            <div class="actions">
+              <button type="submit" class="btn primary" id="btnSaveTools">Add selected tools to Cursor</button>
+            </div>
+            <p class="hint" id="toolsHint"></p>
+          </form>
+          <p class="fineprint">
+            LinkedIn Ads is already part of this app. Advanced setup can store a LinkedIn app’s own client id after you create one at
+            <a href="https://www.linkedin.com/developers/apps" target="_blank" rel="noopener noreferrer">LinkedIn Developers</a>.
+          </p>
+        </section>
         <!-- 7 Finish -->
         <section class="panel" id="panel-7">
-          <h2>Add to Cursor &amp; try it</h2>
+          <h2>Your setup is ready</h2>
           <p>
             <strong>Local (this Mac):</strong> write MCP config pointing at the Node.js bundled in
             this app.<br />
             <strong>Remote (Fly):</strong> use the JSON from the Fly step (URL + Bearer key).
           </p>
           <div class="actions">
-            <button type="button" class="btn primary" id="btnWriteCursor">
+            <button type="button" class="btn primary" id="btnOpenStatus">
+              Open MCP status
+            </button>
+            <button type="button" class="btn" id="btnWriteCursor">
               Write local Cursor MCP config
             </button>
             <button type="button" class="btn" id="btnCopySnippet">Copy local JSON</button>
@@ -448,29 +482,44 @@
             >.
           </p>
         </section>
-      </main>
 
-      <footer>
-        <a
-          class="footer-brand"
-          href="https://www.brandmatchgrowth.com/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="/brandmatchgrowth-logo.svg" alt="" width="120" height="23" />
-          BrandMatchGrowth
-        </a>
-        <span>·</span>
-        <a href="https://www.brandmatchgrowth.com/" target="_blank" rel="noopener noreferrer"
-          >Website</a
-        >
-        <span>·</span>
-        <a href="https://github.com/brandmathco/google-workspace-mcp" target="_blank" rel="noopener"
-          >GitHub</a
-        >
-        <span>·</span>
-        MIT License
-      </footer>
+        <section class="panel" id="panel-9">
+          <h2>Your MCPs</h2>
+          <p>
+            See what Cursor can reach on this computer, turn a server off, and check the locks
+            that keep ads and secrets safe.
+          </p>
+          <div class="actions">
+            <button type="button" class="btn" id="btnRefreshMcp">Refresh</button>
+            <button type="button" class="btn" id="btnStopAll">Stop all</button>
+            <button type="button" class="btn" id="btnStartAll">Start all</button>
+          </div>
+          <p class="hint" id="mcpHint"></p>
+          <ul class="mcp-list" id="mcpList"></ul>
+          <h3>Security</h3>
+          <ul class="checklist" id="securityList"></ul>
+          <h3>Google accounts</h3>
+          <ul class="account-list" id="manageAccounts"></ul>
+          <p class="fineprint">
+            Stop removes a server from Cursor on this computer. Shared BrandMatchGrowth gateways
+            stay online for everyone else. Quit and reopen Cursor, or reload MCP servers, before
+            the change shows there.
+          </p>
+        </section>
+        <div class="step-nav">
+          <button type="button" class="btn ghost" id="btnBack">Back</button>
+          <span class="step-count" id="stepCount">Step 1 of 5</span>
+          <button type="button" class="btn primary" id="btnContinue">Continue</button>
+        </div>
+      </main>
+      </div>
+
+    </div>
+    <p class="credit">
+      <img class="credit-logo" src="/brandmatchgrowth-logo.svg" alt="" />
+      Built by
+      <a href="https://www.brandmatchgrowth.com/" target="_blank" rel="noopener noreferrer">BrandMatchGrowth</a>
+    </p>
     </div>
     <script src="/wizard.js"></script>
   </body>

@@ -4,12 +4,15 @@ import { dirname, join } from "node:path";
 import { JWT, OAuth2Client } from "google-auth-library";
 import { getAccountStore } from "./accountStore.js";
 
-/** Mail, calendar, and tasks — the lead-magnet / Quick setup consent. */
+/** Mail, calendar, tasks, plus read-only Analytics, AdSense, and Tag Manager. */
 export const GOOGLE_SCOPES_QUICK = [
   "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/tasks",
+  "https://www.googleapis.com/auth/analytics.readonly",
+  "https://www.googleapis.com/auth/adsense.readonly",
+  "https://www.googleapis.com/auth/tagmanager.readonly",
 ] as const;
 
 /** OAuth scopes for Gmail, Calendar, Tasks, Ads, Analytics, AdSense, Tag Manager, and AI Commerce Search. */

@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 let statusCache = null;
 let pollTimer = null;
 let flyCursorSnippet = "";
+let userChoseStep = false;
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -34,14 +35,44 @@ function applyMode(mode) {
   $("modeFull").classList.toggle("active", !quick);
   $("modeQuick").setAttribute("aria-checked", quick ? "true" : "false");
   $("modeFull").setAttribute("aria-checked", quick ? "false" : "true");
-  document.querySelectorAll("[data-quick-label]").forEach((el) => {
-    el.textContent = quick ? el.dataset.quickLabel : el.dataset.fullLabel;
-  });
   try {
     localStorage.setItem("gwmcp-setup-mode", quick ? "quick" : "full");
   } catch {
     // ignore private mode
   }
+  const active = document.querySelector(".step.active");
+  const step = active ? Number(active.dataset.step) : 1;
+  if (quick && ADVANCED_STEPS.has(String(step))) setStep(5);
+  else setStep(step);
+}
+
+function visibleSteps() {
+  return [...document.querySelectorAll(".step")].filter(
+    (el) => getComputedStyle(el).display !== "none",
+  );
+}
+
+function paintRail(next) {
+  const visible = visibleSteps();
+  const index = visible.findIndex((el) => el.dataset.step === String(next));
+  visible.forEach((el, i) => {
+    const num = el.querySelector(".num");
+    if (num) num.textContent = String(i + 1);
+    el.classList.toggle("done", index > -1 && i < index);
+  });
+  const count = $("stepCount");
+  if (count && index > -1) count.textContent = `Step ${index + 1} of ${visible.length}`;
+  const back = $("btnBack");
+  const cont = $("btnContinue");
+  if (back) back.disabled = index <= 0;
+  if (cont) cont.disabled = index < 0 || index >= visible.length - 1;
+}
+
+function moveStep(delta) {
+  const visible = visibleSteps();
+  const index = visible.findIndex((el) => el.classList.contains("active"));
+  const next = visible[index + delta];
+  if (next) setStep(next.dataset.step);
 }
 
 function setStep(step) {
@@ -59,6 +90,36 @@ function setStep(step) {
   else stopAccountPoll();
   if (next === 6) refreshFlyStatus();
   if (next === 7) loadCursorConfig();
+  const arts = {
+    1: "cursor",
+    2: "computer",
+    3: "google",
+    4: "supabase",
+    5: "connect",
+    6: "fly",
+    7: "finish",
+    8: "tools",
+    9: "status",
+  };
+  const artKey = arts[next] || "cursor";
+  const artCopy = {
+    cursor: "Illustrated Cursor window",
+    computer: "Illustrated laptop on a purple desk",
+    google: "Illustrated gold key",
+    supabase: "Illustrated database",
+    connect: "Illustrated connected account",
+    fly: "Illustrated cloud path",
+    finish: "Illustrated setup complete check",
+    tools: "Illustrated tool tiles",
+    status: "Illustrated MCP status board",
+  };
+  const picture = $("stepPicture");
+  if (picture) {
+    picture.src = `/art/${artKey}.svg`;
+    picture.alt = artCopy[artKey] || "Setup illustration";
+  }
+  if (next === 9) loadManage();
+  paintRail(next);
 }
 
 function checklistItem(ok, text) {
@@ -193,7 +254,10 @@ function stopAccountPoll() {
 }
 
 document.querySelectorAll(".step").forEach((btn) => {
-  btn.addEventListener("click", () => setStep(btn.dataset.step));
+  btn.addEventListener("click", () => {
+    userChoseStep = true;
+    setStep(btn.dataset.step);
+  });
 });
 
 document.querySelectorAll("[data-open]").forEach((btn) => {
@@ -207,12 +271,30 @@ document.querySelectorAll("[data-open]").forEach((btn) => {
   });
 });
 
-$("btnToStep2").addEventListener("click", () => setStep(2));
-$("btnToStep3").addEventListener("click", () => setStep(3));
-$("btnToStep4").addEventListener("click", () => setStep(4));
-$("btnToStep5").addEventListener("click", () => setStep(5));
-$("btnToStep6").addEventListener("click", () => setStep(6));
-$("btnToStep7").addEventListener("click", () => setStep(7));
+$("btnToStep2").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(2);
+});
+$("btnToStep3").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(3);
+});
+$("btnToStep4").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(4);
+});
+$("btnToStep5").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(5);
+});
+$("btnToStep6").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(6);
+});
+$("btnToStep7").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(7);
+});
 $("btnSkipSupabase").addEventListener("click", () => setStep(5));
 $("btnSkipFly").addEventListener("click", () => setStep(7));
 
@@ -421,10 +503,143 @@ $("btnCopyFlyCursor").addEventListener("click", async () => {
   await navigator.clipboard.writeText(flyCursorSnippet || $("flyCursorSnippet").textContent);
 });
 
+
+const REACH = {
+  up: "Responding",
+  down: "Not responding",
+  local: "On this computer",
+  stopped: "Disconnected",
+};
+
+function mcpGlyph(server) {
+  if (server.name === "google-workspace") return "link";
+  if (server.kind === "local") return "computer";
+  if (server.name === "github") return "tools";
+  return "cloud";
+}
+
+function renderSecurity(findings) {
+  const list = $("securityList");
+  list.replaceChildren(
+    ...findings.map((item) => {
+      const li = document.createElement("li");
+      const dot = document.createElement("span");
+      dot.className = `dot ${item.ok ? "ok" : "bad"}`;
+      const span = document.createElement("span");
+      const title = document.createElement("strong");
+      title.textContent = item.title;
+      span.append(title, document.createTextNode(` ${item.detail}`));
+      li.append(dot, span);
+      return li;
+    }),
+  );
+}
+
+function renderManageAccounts(accounts) {
+  const list = $("manageAccounts");
+  if (!accounts.length) {
+    list.replaceChildren(checklistItem(false, "No Google account connected yet."));
+    list.className = "checklist";
+    return;
+  }
+  list.className = "account-list";
+  list.replaceChildren(
+    ...accounts.map((account) => {
+      const li = document.createElement("li");
+      li.textContent = account.isDefault ? `${account.email} · default` : account.email;
+      return li;
+    }),
+  );
+}
+
+function renderServers(servers) {
+  const list = $("mcpList");
+  if (!servers.length) {
+    const li = document.createElement("li");
+    li.className = "mcp-row";
+    li.textContent = "No MCPs are saved in Cursor yet. Finish setup, then come back here.";
+    list.replaceChildren(li);
+    return;
+  }
+  list.replaceChildren(
+    ...servers.map((server) => {
+      const li = document.createElement("li");
+      li.className = "mcp-row";
+      const glyph = document.createElement("span");
+      glyph.className = "glyph";
+      glyph.dataset.icon = mcpGlyph(server);
+      const copy = document.createElement("div");
+      const title = document.createElement("strong");
+      title.textContent = server.name;
+      const meta = document.createElement("span");
+      meta.className = "meta-line";
+      const ready =
+        server.localReady === false ? "Files missing" : REACH[server.reachability] || server.detail;
+      const access = server.readonly ? " · Read only" : server.hasAuth ? " · Signed in" : "";
+      meta.textContent = `${server.detail} · ${ready}${access}`;
+      const badge = document.createElement("span");
+      badge.className = server.state === "running" ? "badge" : "badge off";
+      badge.textContent = server.state === "running" ? "Running" : "Stopped";
+      copy.append(title, meta, badge);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn tiny";
+      button.textContent = server.state === "running" ? "Stop" : "Start";
+      button.addEventListener("click", () =>
+        setMcpPower({ name: server.name, running: server.state !== "running" }),
+      );
+      li.append(glyph, copy, button);
+      return li;
+    }),
+  );
+}
+
+async function loadManage() {
+  const hint = $("mcpHint");
+  if (hint) hint.textContent = "Checking…";
+  try {
+    const data = await api("/api/mcp/status");
+    renderServers(data.servers || []);
+    renderSecurity(data.security || []);
+    renderManageAccounts(data.accounts || []);
+    if (hint) hint.textContent = data.path ? `Cursor file: ${data.path}` : "";
+  } catch (error) {
+    if (hint) hint.textContent = error.message;
+  }
+}
+
+async function setMcpPower(body) {
+  const hint = $("mcpHint");
+  if (hint) hint.textContent = "Saving…";
+  try {
+    const data = await api("/api/mcp/power", { method: "POST", body: JSON.stringify(body) });
+    renderServers(data.servers || []);
+    renderSecurity(data.security || []);
+    renderManageAccounts(data.accounts || []);
+    const changed = (data.changed || []).join(", ");
+    if (hint) {
+      hint.textContent = changed
+        ? `Updated ${changed}. Reload MCP servers in Cursor.`
+        : "Nothing changed.";
+    }
+  } catch (error) {
+    if (hint) hint.textContent = error.message;
+  }
+}
+
 $("btnCopySnippet").addEventListener("click", async () => {
   await navigator.clipboard.writeText($("cursorSnippet").textContent);
   $("cursorHint").textContent = "JSON copied.";
 });
+
+$("btnOpenStatus").addEventListener("click", () => {
+  userChoseStep = true;
+  setStep(9);
+});
+
+$("btnRefreshMcp").addEventListener("click", () => loadManage());
+$("btnStopAll").addEventListener("click", () => setMcpPower({ all: "stop" }));
+$("btnStartAll").addEventListener("click", () => setMcpPower({ all: "start" }));
 
 $("btnWriteCursor").addEventListener("click", async () => {
   $("cursorHint").textContent = "Writing…";
@@ -446,9 +661,22 @@ applyMode((() => {
 
 $("modeQuick").addEventListener("click", () => applyMode("quick"));
 $("modeFull").addEventListener("click", () => applyMode("full"));
+$("btnBack").addEventListener("click", () => {
+  userChoseStep = true;
+  moveStep(-1);
+});
+$("btnContinue").addEventListener("click", () => {
+  userChoseStep = true;
+  moveStep(1);
+});
 
 refreshStatus()
   .then((status) => {
+    if (userChoseStep) return;
+    if (status.setupComplete) {
+      setStep(9);
+      return;
+    }
     if (status.packaged && status.depsInstalled && status.distBuilt) {
       setStep(status.hasEnv ? (isQuickMode() ? 5 : 4) : 1);
       return;

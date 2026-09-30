@@ -6,12 +6,15 @@ import {
   scopesForSetupPreset,
 } from "./googleAuth.js";
 
-test("quick setup asks only for Gmail, Calendar, and Tasks", () => {
+test("quick setup includes mail, calendar, tasks, and read-only analytics tools", () => {
   const scopes = scopesForSetupPreset("quick");
   assert.deepEqual(scopes, [...GOOGLE_SCOPES_QUICK]);
+  assert.equal(scopes.some((scope) => scope.includes("analytics.readonly")), true);
+  assert.equal(scopes.some((scope) => scope.includes("adsense.readonly")), true);
+  assert.equal(scopes.some((scope) => scope.includes("tagmanager.readonly")), true);
   assert.equal(scopes.some((scope) => scope.includes("cloud-platform")), false);
   assert.equal(scopes.some((scope) => scope.includes("adwords")), false);
-  assert.equal(scopes.some((scope) => scope.includes("adsense")), false);
+  assert.equal(scopes.some((scope) => scope.includes("tagmanager.publish")), false);
 });
 
 test("full setup keeps the complete operator scope list", () => {

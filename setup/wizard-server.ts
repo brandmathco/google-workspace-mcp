@@ -9,11 +9,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
   writeFileSync,
   copyFileSync,
+  statSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -38,6 +40,17 @@ import {
   readMigrationSql,
   startFlyAuthLogin,
 } from "./flyAssist.js";
+import { cursorServersForExtras } from "./extraMcps.js";
+import {
+  applyPower,
+  cursorServers,
+  describeMcps,
+  probeTargets,
+  securityFindings,
+  stoppedDocument,
+  stoppedServers,
+  withServers,
+} from "./mcpControl.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(__dirname, "public");
@@ -465,6 +478,105 @@ async function startAuthorize(
   return { ok: true, authUrl };
 }
 
+
+function stoppedMcpPath(): string {
+  return join(resolveUserConfigDir(), "stopped-mcp.json");
+}
+
+function readJsonObject(path: string): Record<string, unknown> | null {
+  if (!existsSync(path)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function fileMode(path: string): number | null {
+  try {
+    return statSync(path).mode & 0o777;
+  } catch {
+    return null;
+  }
+}
+
+function writePrivateJson(path: string, body: unknown): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(body, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  try {
+    chmodSync(path, 0o600);
+  } catch {
+    // Windows may ignore the mode. The file still stays in the user profile.
+  }
+}
+
+async function probeRemote(url: string): Promise<"up" | "down"> {
+  const controller = new AbortController();
+  const killer = setTimeout(() => controller.abort(), 2000);
+  try {
+    const response = await fetch(url, { method: "GET", signal: controller.signal, redirect: "manual" });
+    return response.status > 0 ? "up" : "down";
+  } catch {
+    return "down";
+  } finally {
+    clearTimeout(killer);
+  }
+}
+
+async function mcpControlPayload(): Promise<{
+  path: string;
+  setupComplete: boolean;
+  servers: Array<ReturnType<typeof describeMcps>[number] & { reachability: string }>;
+  security: ReturnType<typeof securityFindings>;
+  accounts: Awaited<ReturnType<typeof listAccountsSafe>>;
+}> {
+  const envPath = resolveUserEnvPath();
+  const env = parseEnvFile(envPath);
+  const cursorPath = cursorConfigPaths()[0] ?? "";
+  const stoppedPath = stoppedMcpPath();
+  const cursorDoc = readJsonObject(cursorPath);
+  const stoppedDoc = readJsonObject(stoppedPath);
+  const active = cursorServers(cursorDoc);
+  const stopped = stoppedServers(stoppedDoc);
+  const probes = new Map<string, "up" | "down">();
+  await Promise.all(
+    probeTargets(active).map(async (target) => {
+      probes.set(target.name, await probeRemote(target.url));
+    }),
+  );
+  const servers = describeMcps(active, stopped, existsSync).map((server) => ({
+    ...server,
+    reachability:
+      server.state === "stopped"
+        ? "stopped"
+        : server.kind === "local"
+          ? "local"
+          : (probes.get(server.name) ?? "down"),
+  }));
+  const github = active.github ?? stopped.github;
+  const githubUrl = github && typeof github.url === "string" ? github.url : null;
+  return {
+    path: cursorPath,
+    setupComplete:
+      Boolean(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET) &&
+      Object.keys(active).length + Object.keys(stopped).length > 0,
+    servers,
+    security: securityFindings({
+      adsAllowEnable: env.GOOGLE_ADS_ALLOW_ENABLE,
+      hasEncryptionKey: Boolean(env.GOOGLE_TOKEN_ENCRYPTION_KEY),
+      storesAccountsInSupabase: env.GOOGLE_ACCOUNTS_STORE === "supabase",
+      envMode: fileMode(envPath),
+      configMode: fileMode(cursorPath),
+      stoppedMode: fileMode(stoppedPath),
+      accountCount: (await listAccountsSafe()).length,
+      githubUrl,
+    }),
+    accounts: await listAccountsSafe(),
+  };
+}
+
 function contentTypeFor(filePath: string): string {
   if (filePath.endsWith(".html")) return "text/html; charset=utf-8";
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
@@ -594,6 +706,11 @@ async function handleApi(
       cursorConfigPaths: cursorConfigPaths(),
       version: readPackageVersion(root),
       fly: getFlyStatus(),
+      setupComplete:
+        Boolean(env.GOOGLE_OAUTH_CLIENT_ID && env.GOOGLE_OAUTH_CLIENT_SECRET) &&
+        Object.keys(cursorServers(readJsonObject(cursorConfigPaths()[0] ?? ""))).length +
+          Object.keys(stoppedServers(readJsonObject(stoppedMcpPath()))).length >
+          0,
     });
     return;
   }
@@ -867,7 +984,13 @@ async function handleApi(
   }
 
   if (req.method === "POST" && path === "/api/write-cursor-config") {
-    if (!distBuilt(root)) {
+    const body = await readJson(req);
+    const extras = cursorServersForExtras(body.tools);
+    const added = Object.keys(extras);
+    const googleReady = distBuilt(root) && existsSync(envPath);
+    const includeGoogle = body.google !== false;
+
+    if (includeGoogle && !distBuilt(root) && added.length === 0) {
       sendJson(res, 400, {
         ok: false,
         error: packaged
@@ -876,10 +999,17 @@ async function handleApi(
       });
       return;
     }
-    if (!existsSync(envPath)) {
+    if (includeGoogle && !existsSync(envPath) && added.length === 0) {
       sendJson(res, 400, {
         ok: false,
         error: "Save your Google keys first so Cursor can load them.",
+      });
+      return;
+    }
+    if (!googleReady && added.length === 0 && includeGoogle) {
+      sendJson(res, 400, {
+        ok: false,
+        error: "Nothing to write yet. Save Google keys or paste a tool key.",
       });
       return;
     }
@@ -898,23 +1028,79 @@ async function handleApi(
       }
     }
 
-    const next = {
-      ...existing,
-      mcpServers: {
-        ...(existing.mcpServers ?? {}),
-        "google-workspace": {
-          command: resolveNodeCommand(root),
-          args: [mcpDistIndex(root)],
-          env: {
-            GOOGLE_MCP_ENV_FILE: envPath,
-            GOOGLE_MCP_APP_ROOT: root,
-          },
+    const mcpServers: Record<string, unknown> = { ...(existing.mcpServers ?? {}) };
+    if (includeGoogle && googleReady) {
+      mcpServers["google-workspace"] = {
+        command: resolveNodeCommand(root),
+        args: [mcpDistIndex(root)],
+        env: {
+          GOOGLE_MCP_ENV_FILE: envPath,
+          GOOGLE_MCP_APP_ROOT: root,
         },
-      },
-    };
+      };
+    }
+    Object.assign(mcpServers, extras);
 
-    writeFileSync(target, `${JSON.stringify(next, null, 2)}\n`, "utf8");
-    sendJson(res, 200, { ok: true, path: target });
+    const next = { ...existing, mcpServers };
+    writeFileSync(target, `${JSON.stringify(next, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    try {
+      chmodSync(target, 0o600);
+    } catch {
+      // Windows may refuse the mode; the file is still local to this user.
+    }
+    sendJson(res, 200, {
+      ok: true,
+      path: target,
+      added,
+      google: Boolean(includeGoogle && googleReady),
+    });
+    return;
+  }
+
+
+  if (req.method === "GET" && path === "/api/mcp/status") {
+    sendJson(res, 200, await mcpControlPayload());
+    return;
+  }
+
+  if (req.method === "POST" && path === "/api/mcp/power") {
+    const body = await readJson(req);
+    const cursorPath = cursorConfigPaths()[0];
+    const stoppedPath = stoppedMcpPath();
+    if (!cursorPath) {
+      sendJson(res, 400, { ok: false, error: "Cursor config path is not available on this computer." });
+      return;
+    }
+    const cursorDoc = readJsonObject(cursorPath);
+    if (existsSync(cursorPath) && !cursorDoc) {
+      sendJson(res, 400, {
+        ok: false,
+        error: "Cursor's MCP file could not be read, so it was left unchanged.",
+      });
+      return;
+    }
+    const stoppedDoc = readJsonObject(stoppedPath);
+    if (existsSync(stoppedPath) && !stoppedDoc) {
+      sendJson(res, 400, {
+        ok: false,
+        error: "The stopped-server file could not be read, so nothing was changed.",
+      });
+      return;
+    }
+    const result = applyPower(cursorServers(cursorDoc), stoppedServers(stoppedDoc), {
+      name: body.name,
+      running: body.running,
+      all: body.all,
+    });
+    if (result.error) {
+      sendJson(res, 400, { ok: false, error: result.error });
+      return;
+    }
+    const base = cursorDoc ?? {};
+    writePrivateJson(cursorPath, withServers(base, result.active));
+    writePrivateJson(stoppedPath, stoppedDocument(result.stopped));
+    const status = await mcpControlPayload();
+    sendJson(res, 200, { ok: true, changed: result.changed, ...status });
     return;
   }
 

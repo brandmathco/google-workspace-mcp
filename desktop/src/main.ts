@@ -120,13 +120,32 @@ function startWizardProcess(): void {
   });
 }
 
+function windowMaterial(): Electron.BrowserWindowConstructorOptions {
+  if (process.platform === "darwin") {
+    return {
+      vibrancy: "under-window",
+      visualEffectState: "active",
+      backgroundColor: "#00000000",
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 16, y: 16 },
+    };
+  }
+  if (process.platform === "win32") {
+    return {
+      backgroundMaterial: "mica",
+      backgroundColor: "#00000000",
+    };
+  }
+  return { backgroundColor: "#e7d8f6" };
+}
+
 function createWindow(): void {
   const iconPath = appIconPath();
   mainWindow = new BrowserWindow({
-    width: 920,
-    height: 820,
-    minWidth: 720,
-    minHeight: 560,
+    width: 1180,
+    height: 860,
+    minWidth: 960,
+    minHeight: 680,
     title: "Google Workspace MCP Setup — BrandMatchGrowth",
     icon: iconPath ? nativeImage.createFromPath(iconPath) : undefined,
     webPreferences: {
@@ -134,7 +153,15 @@ function createWindow(): void {
       contextIsolation: true,
     },
     show: false,
-    backgroundColor: "#0a0614",
+    ...windowMaterial(),
+  });
+
+  mainWindow.webContents.on("dom-ready", () => {
+    if (process.platform === "darwin" || process.platform === "win32") {
+      void mainWindow?.webContents.executeJavaScript(
+        "document.documentElement.classList.add('shell-glass')",
+      );
+    }
   });
 
   mainWindow.once("ready-to-show", () => {
