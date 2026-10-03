@@ -15,6 +15,7 @@ import {
 import { loadEnvFile } from "./loadEnv.js";
 import { registerAuthorizeRoutes } from "./httpAuthorize.js";
 import { createGoogleWorkspaceMcpServer } from "./serverFactory.js";
+import { runPrimeGoogleTool } from "./primeGoogleTools.js";
 
 loadEnvFile();
 
@@ -46,6 +47,27 @@ app.get("/health", (_req, res) => {
     mcpReady,
     bootMs: Date.now() - bootStartedMs,
   });
+});
+
+/** Prime Copilot → Gmail/Calendar using that app's Google connect token. */
+app.post("/v1/google-tools", requireApiKey, async (req, res) => {
+  const tool = typeof req.body?.tool === "string" ? req.body.tool.trim() : "";
+  const accessToken =
+    typeof req.body?.accessToken === "string" ? req.body.accessToken : "";
+  const args =
+    req.body?.arguments && typeof req.body.arguments === "object"
+      ? (req.body.arguments as Record<string, unknown>)
+      : {};
+  if (!tool) {
+    res.status(400).json({ error: "tool is required" });
+    return;
+  }
+  const result = await runPrimeGoogleTool(tool, args, accessToken);
+  if (!result.ok) {
+    res.status(400).json({ error: result.error ?? "Google tool failed" });
+    return;
+  }
+  res.json({ success: true, tool, data: result.data });
 });
 
 registerAuthorizeRoutes(app);

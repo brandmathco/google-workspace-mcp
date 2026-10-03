@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -167,9 +168,26 @@ async function createOAuthClientForAccount(accountEmail?: string): Promise<OAuth
   return createOAuthClientFromRefreshToken(account.refresh_token);
 }
 
+export type GoogleAuthOverride = {
+  accessToken?: string;
+};
+
+export const googleAuthOverride = new AsyncLocalStorage<GoogleAuthOverride>();
+
+export function createOAuthClientFromAccessToken(accessToken: string): OAuth2Client {
+  const oauth = createOAuthClientForSetup();
+  oauth.setCredentials({ access_token: accessToken.trim() });
+  return oauth;
+}
+
 export async function getGoogleAuthClient(
   accountEmail?: string,
 ): Promise<OAuth2Client | JWT> {
+  const override = googleAuthOverride.getStore();
+  const accessToken = override?.accessToken?.trim();
+  if (accessToken) {
+    return createOAuthClientFromAccessToken(accessToken);
+  }
   if (process.env.GOOGLE_SERVICE_ACCOUNT?.trim()) {
     return createServiceAccountAuth();
   }
