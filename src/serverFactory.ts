@@ -29,6 +29,9 @@ import { adsenseTools, handleAdsenseTool } from "./adsenseTools.js";
 import { commerceTools, handleCommerceTool } from "./commerceTools.js";
 import { tagManagerTools, handleTagManagerTool } from "./tagManagerTools.js";
 import { linkedinTools, handleLinkedInTool } from "./linkedinTools.js";
+import { readDriveFileContent } from "./services/driveContent.js";
+import { runDriveWriteTool } from "./services/driveWrite.js";
+import { google } from "googleapis";
 
 const accountEmailProperty = {
   accountEmail: {
@@ -321,6 +324,211 @@ const tools = [
         maxResults: { type: "number", description: "Max events (default 10)" },
         calendarId: { type: "string", description: "Calendar ID (default primary)" },
       },
+    },
+  },
+
+  {
+    name: "drive_search_files",
+    description:
+      "Search Google Drive files (name contains / optional folder + mimeType). Uses the authorized account (or accountEmail).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        query: { type: "string", description: "Name substring to search" },
+        folderId: { type: "string", description: "Limit to this folder ID" },
+        mimeType: { type: "string", description: "Exact Drive mimeType filter" },
+        pageSize: { type: "number", description: "Max results (default 15, max 25)" },
+      },
+    },
+  },
+  {
+    name: "drive_get_file",
+    description:
+      "Get a Drive file with full extracted content: Docs→text (optional markdown), Sheets→CSV, Slides→text, PDF→text (needs_ocr+base64 if scanned), DOCX→text, XLSX→CSV, images→base64, text/CSV→text. Set include_raw=true for original bytes (capped).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string", description: "Drive file ID" },
+        includeText: {
+          type: "boolean",
+          description: "Extract/export text (default true)",
+        },
+        include_raw: {
+          type: "boolean",
+          description: "Include base64 of original bytes (max 20MB, truncated flag if larger)",
+        },
+        include_markdown: {
+          type: "boolean",
+          description: "Also try markdown export for Google Docs",
+        },
+        export_format: {
+          type: "string",
+          description: "plain | markdown (Docs)",
+        },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_read_file",
+    description:
+      "Alias of drive_get_file — returns full Drive file content for the authorized account.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string", description: "Drive file ID" },
+        includeText: { type: "boolean" },
+        include_raw: { type: "boolean" },
+        include_markdown: { type: "boolean" },
+      },
+      required: ["fileId"],
+    },
+  },
+
+  {
+    name: "drive_create_folder",
+    description: "Create a Google Drive folder (optional parent folderId).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        folderId: { type: "string", description: "Parent folder ID" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_create_file",
+    description:
+      "Create a Drive file: type=doc|sheet for Google Docs/Sheets (optional seed text), or mimeType + text/base64 for other files. Optional folderId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        type: { type: "string", description: "doc | sheet" },
+        mimeType: { type: "string" },
+        text: { type: "string" },
+        base64: { type: "string" },
+        folderId: { type: "string" },
+        range: { type: "string", description: "Sheet seed range (default A1)" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_upload_file",
+    description:
+      "Upload bytes to Drive from base64 or url (max 20MB). Optional folderId and mimeType.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        base64: { type: "string" },
+        url: { type: "string" },
+        mimeType: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_update_file_content",
+    description:
+      "Replace/append/find-replace Docs text; update/append Sheets cells; or upload a new revision for other files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        mode: {
+          type: "string",
+          description: "replace | append | find_replace | cells | append_rows",
+        },
+        text: { type: "string" },
+        find: { type: "string" },
+        replace: { type: "string" },
+        range: { type: "string" },
+        values: { type: "array" },
+        base64: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_update_metadata",
+    description: "Rename a Drive file or set description / appProperties / properties (custom fields).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        appProperties: { type: "object" },
+        properties: { type: "object" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_move_file",
+    description: "Move a Drive file into folderId (replaces current parents).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["fileId", "folderId"],
+    },
+  },
+  {
+    name: "drive_copy_file",
+    description: "Copy a Drive file; optional new name and destination folderId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        name: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_trash_file",
+    description: "Move a Drive file to trash (never permanent delete).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_share_file",
+    description:
+      "Share a Drive file with one user email (role reader|commenter|writer). Off by default in agents — use carefully.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        email: { type: "string" },
+        role: { type: "string" },
+        sendNotification: { type: "boolean" },
+      },
+      required: ["fileId", "email"],
     },
   },
   {
@@ -671,6 +879,101 @@ export function createGoogleWorkspaceMcpServer(): Server {
           const input = listTasksSchema.parse(args ?? {});
           const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await listTasks(auth, input));
+        }
+
+        case "drive_search_files": {
+          const accountEmail =
+            typeof (args as { accountEmail?: string } | undefined)?.accountEmail ===
+            "string"
+              ? (args as { accountEmail: string }).accountEmail
+              : undefined;
+          const auth = await getGoogleAuthClient(accountEmail);
+          const drive = google.drive({ version: "v3", auth });
+          const pageSize =
+            typeof (args as { pageSize?: number })?.pageSize === "number"
+              ? Math.min(Math.max((args as { pageSize: number }).pageSize, 1), 25)
+              : 15;
+          const parts: string[] = ["trashed = false"];
+          const query =
+            typeof (args as { query?: string })?.query === "string"
+              ? (args as { query: string }).query.trim()
+              : "";
+          const folderId =
+            typeof (args as { folderId?: string })?.folderId === "string"
+              ? (args as { folderId: string }).folderId.trim()
+              : "";
+          const mimeType =
+            typeof (args as { mimeType?: string })?.mimeType === "string"
+              ? (args as { mimeType: string }).mimeType.trim()
+              : "";
+          if (folderId) {
+            parts.push(`'${folderId.replace(/'/g, "\\'")}' in parents`);
+          }
+          if (mimeType) {
+            parts.push(`mimeType = '${mimeType.replace(/'/g, "\\'")}'`);
+          }
+          if (query) {
+            const q = query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            parts.push(`name contains '${q}'`);
+          }
+          const listed = await drive.files.list({
+            q: parts.join(" and "),
+            pageSize,
+            fields:
+              "files(id,name,mimeType,modifiedTime,size,webViewLink,md5Checksum)",
+            orderBy: "modifiedTime desc",
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          });
+          return jsonResult({
+            files: listed.data.files ?? [],
+            query: parts.join(" and "),
+          });
+        }
+        case "drive_get_file":
+        case "drive_read_file": {
+          const a = (args ?? {}) as Record<string, unknown>;
+          const accountEmail =
+            typeof a.accountEmail === "string" ? a.accountEmail : undefined;
+          const fileId = typeof a.fileId === "string" ? a.fileId.trim() : "";
+          if (!fileId) {
+            return errorResult("fileId is required");
+          }
+          const auth = await getGoogleAuthClient(accountEmail);
+          const result = await readDriveFileContent(auth, {
+            fileId,
+            includeText: a.includeText !== false && a.include_text !== false,
+            includeRaw: a.includeRaw === true || a.include_raw === true,
+            includeMarkdown:
+              a.includeMarkdown === true ||
+              a.include_markdown === true ||
+              a.export_format === "markdown" ||
+              a.exportFormat === "markdown",
+          });
+          if (!result.ok) {
+            return errorResult(result.error);
+          }
+          return jsonResult(result.data);
+        }
+
+        case "drive_create_file":
+        case "drive_create_folder":
+        case "drive_upload_file":
+        case "drive_update_file_content":
+        case "drive_update_metadata":
+        case "drive_move_file":
+        case "drive_copy_file":
+        case "drive_trash_file":
+        case "drive_share_file": {
+          const a = (args ?? {}) as Record<string, unknown>;
+          const accountEmail =
+            typeof a.accountEmail === "string" ? a.accountEmail : undefined;
+          const auth = await getGoogleAuthClient(accountEmail);
+          const written = await runDriveWriteTool(name, a, auth);
+          if (!written.ok) {
+            return errorResult(written.error);
+          }
+          return jsonResult(written.data);
         }
         default:
           return errorResult(`Unknown tool: ${name}`);

@@ -2,7 +2,7 @@
   "name": "google-workspace-mcp",
   "version": "1.11.0",
   "type": "module",
-  "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, Google Tasks, Google Analytics (GA4), and spend-safe Google Ads \u2014 multi-account OAuth, Cursor-ready",
+  "description": "BrandMatchGrowth MCP server for Gmail, Google Calendar, Google Tasks, Google Analytics (GA4), and spend-safe Google Ads — multi-account OAuth, Cursor-ready",
   "license": "MIT",
   "author": "BrandMatchGrowth <support@brandmatchco.com>",
   "repository": {
@@ -61,7 +61,7 @@
     "authorize:all": "tsx scripts/authorize-all.ts",
     "authorize:all:auto": "tsx scripts/authorize-all-auto.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/services/adsenseFormat.test.ts src/services/commerceFormat.test.ts",
+    "test": "tsx --test src/services/adsenseFormat.test.ts src/services/commerceFormat.test.ts src/services/driveContent.test.ts src/services/driveWrite.test.ts",
     "desktop:prepare": "node scripts/prepare-desktop-bundle.mjs",
     "desktop:prepare:win": "node scripts/prepare-desktop-bundle.mjs --platform=win32 --arch=x64",
     "desktop:dist:mac": "npm run desktop:prepare && npm --prefix desktop install && npm --prefix desktop run dist:mac",
@@ -77,11 +77,15 @@
     "google-ads-api": "^24.1.0",
     "google-auth-library": "^9.14.0",
     "googleapis": "^144.0.0",
+    "mammoth": "^1.13.0",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^22.13.10",
+    "@types/pdf-parse": "^1.1.5",
     "playwright": "^1.62.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
