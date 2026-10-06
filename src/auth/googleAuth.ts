@@ -8,7 +8,8 @@ import { getAccountStore } from "./accountStore.js";
 /** OAuth scopes for Gmail, Calendar, Tasks, Ads, Analytics, AdSense, Tag Manager, and AI Commerce Search. */
 export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/drive.readonly",
+  // Full Drive (writes after reconnect / MCP OAuth). Was drive.readonly.
+  "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/documents",
   "https://www.googleapis.com/auth/gmail.compose",
