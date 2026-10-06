@@ -38,6 +38,7 @@ export type DriveFileContent = {
   rawSizeBytes?: number;
   rawTruncated?: boolean;
   truncated?: boolean;
+  empty?: boolean;
   note?: string;
 };
 
@@ -274,6 +275,10 @@ export async function readDriveFileContent(
         const { text, truncated } = truncateText(buf.toString("utf8"));
         out.text = text;
         out.truncated = truncated;
+        if (!text) {
+          out.empty = true;
+          out.note = "The file opened fine but has no text content (it is empty).";
+        }
       }
       if (includeMarkdown && strategy.alsoMarkdown) {
         try {

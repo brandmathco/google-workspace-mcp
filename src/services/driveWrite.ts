@@ -107,6 +107,30 @@ export async function driveCreateFolder(
   return { ok: true, data: { file: res.data } };
 }
 
+/** Media used to seed a native Google Doc/Sheet via Drive import conversion. */
+export function seedUploadFor(
+  googleMime: string,
+  seed: string,
+): { mimeType: string; buffer: Buffer } | null {
+  if (!seed) return null;
+  if (googleMime === GOOGLE_SHEET) {
+    const csv = seed
+      .split(/\r?\n/)
+      .map((line) =>
+        line
+          .split(line.includes("\t") ? "\t" : ",")
+          .map((cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell))
+          .join(","),
+      )
+      .join("\n");
+    return { mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") };
+  }
+  if (googleMime === GOOGLE_DOC) {
+    return { mimeType: "text/plain", buffer: Buffer.from(seed, "utf8") };
+  }
+  return null;
+}
+
 export async function driveCreateFile(
   auth: Auth,
   args: Record<string, unknown>,
@@ -127,37 +151,24 @@ export async function driveCreateFile(
   // Native Google Doc/Sheet (optionally seed text afterward)
   if (mimeType === GOOGLE_DOC || mimeType === GOOGLE_SHEET || str(args, "type") === "doc" || str(args, "type") === "sheet") {
     mimeType = mimeType || (str(args, "type") === "sheet" ? GOOGLE_SHEET : GOOGLE_DOC);
+    const seed = str(args, "text") || str(args, "content");
+    // Seed text is uploaded through the Drive API and converted to a native
+    // Google Doc/Sheet in one call. This needs only the Drive scope + Drive API
+    // (no separate Docs/Sheets API enablement) and never leaves an empty doc
+    // behind when a follow-up Docs/Sheets write fails.
+    const seedUpload = seed ? seedUploadFor(mimeType, seed) : null;
     const created = await drive.files.create({
       requestBody: {
         name,
         mimeType,
         parents: parentId ? [parentId] : undefined,
       },
+      ...(seedUpload
+        ? { media: { mimeType: seedUpload.mimeType, body: Readable.from(seedUpload.buffer) } }
+        : {}),
       fields: "id,name,mimeType,webViewLink,parents",
       supportsAllDrives: true,
     });
-    const fileId = created.data.id ?? "";
-    const seed = str(args, "text") || str(args, "content");
-    if (seed && mimeType === GOOGLE_DOC && fileId) {
-      await docsClient(auth).documents.batchUpdate({
-        documentId: fileId,
-        requestBody: {
-          requests: [
-            { insertText: { location: { index: 1 }, text: seed } },
-          ],
-        },
-      });
-    }
-    if (seed && mimeType === GOOGLE_SHEET && fileId) {
-      await sheetsClient(auth).spreadsheets.values.update({
-        spreadsheetId: fileId,
-        range: str(args, "range") || "A1",
-        valueInputOption: "USER_ENTERED",
-        requestBody: {
-          values: seed.split("\n").map((line) => line.split("\t")),
-        },
-      });
-    }
     return { ok: true, data: { file: created.data } };
   }
 
@@ -255,59 +266,14 @@ export async function driveUpdateFileContent(
   const mode = str(args, "mode") || "replace"; // replace | append | find_replace | cells | append_rows
 
   if (mime === GOOGLE_DOC) {
-    const docs = docsClient(auth);
-    if (mode === "find_replace") {
-      const find = str(args, "find") || str(args, "search");
-      const replace = str(args, "replace") || str(args, "replacement");
-      if (!find) return { ok: false, error: "find is required for find_replace" };
-      const res = await docs.documents.batchUpdate({
-        documentId: fileId,
-        requestBody: {
-          requests: [
-            {
-              replaceAllText: {
-                containsText: { text: find, matchCase: bool(args, "matchCase") },
-                replaceText: replace,
-              },
-            },
-          ],
-        },
-      });
-      return { ok: true, data: { fileId, mode, result: res.data } };
+    try {
+      return await updateDocViaDocsApi(auth, fileId, mode, args);
+    } catch (err) {
+      if (!isApiDisabledError(err)) throw err;
+      // Docs API is not enabled on the OAuth project: rewrite the doc body
+      // through Drive (export text → edit → upload text/plain over the Doc).
+      return await updateDocViaDrive(drive, fileId, mode, args);
     }
-    const text = str(args, "text") || str(args, "content");
-    if (!text) return { ok: false, error: "text/content is required" };
-    if (mode === "append") {
-      const doc = await docs.documents.get({ documentId: fileId });
-      const endIndex = doc.data.body?.content?.at(-1)?.endIndex ?? 1;
-      const insertAt = Math.max(1, endIndex - 1);
-      const res = await docs.documents.batchUpdate({
-        documentId: fileId,
-        requestBody: {
-          requests: [
-            { insertText: { location: { index: insertAt }, text } },
-          ],
-        },
-      });
-      return { ok: true, data: { fileId, mode: "append", result: res.data } };
-    }
-    // replace: clear body then insert
-    const doc = await docs.documents.get({ documentId: fileId });
-    const endIndex = doc.data.body?.content?.at(-1)?.endIndex ?? 1;
-    const requests: docs_v1.Schema$Request[] = [];
-    if (endIndex > 2) {
-      requests.push({
-        deleteContentRange: {
-          range: { startIndex: 1, endIndex: endIndex - 1 },
-        },
-      });
-    }
-    requests.push({ insertText: { location: { index: 1 }, text } });
-    const res = await docs.documents.batchUpdate({
-      documentId: fileId,
-      requestBody: { requests },
-    });
-    return { ok: true, data: { fileId, mode: "replace", result: res.data } };
   }
 
   if (mime === GOOGLE_SHEET) {
@@ -361,6 +327,138 @@ export async function driveUpdateFileContent(
     supportsAllDrives: true,
   });
   return { ok: true, data: { file: updated.data, mode: "replace_media" } };
+}
+
+async function updateDocViaDocsApi(
+  auth: Auth,
+  fileId: string,
+  mode: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+    const docs = docsClient(auth);
+
+    if (mode === "find_replace") {
+      const find = str(args, "find") || str(args, "search");
+      const replace = str(args, "replace") || str(args, "replacement");
+      if (!find) return { ok: false, error: "find is required for find_replace" };
+      const res = await docs.documents.batchUpdate({
+        documentId: fileId,
+        requestBody: {
+          requests: [
+            {
+              replaceAllText: {
+                containsText: { text: find, matchCase: bool(args, "matchCase") },
+                replaceText: replace,
+              },
+            },
+          ],
+        },
+      });
+      return { ok: true, data: { fileId, mode, result: res.data } };
+    }
+    const text = str(args, "text") || str(args, "content");
+    if (!text) return { ok: false, error: "text/content is required" };
+    if (mode === "append") {
+      const doc = await docs.documents.get({ documentId: fileId });
+      const endIndex = doc.data.body?.content?.at(-1)?.endIndex ?? 1;
+      const insertAt = Math.max(1, endIndex - 1);
+      const res = await docs.documents.batchUpdate({
+        documentId: fileId,
+        requestBody: {
+          requests: [
+            { insertText: { location: { index: insertAt }, text } },
+          ],
+        },
+      });
+      return { ok: true, data: { fileId, mode: "append", result: res.data } };
+    }
+    // replace: clear body then insert
+    const doc = await docs.documents.get({ documentId: fileId });
+    const endIndex = doc.data.body?.content?.at(-1)?.endIndex ?? 1;
+    const requests: docs_v1.Schema$Request[] = [];
+    if (endIndex > 2) {
+      requests.push({
+        deleteContentRange: {
+          range: { startIndex: 1, endIndex: endIndex - 1 },
+        },
+      });
+    }
+    requests.push({ insertText: { location: { index: 1 }, text } });
+    const res = await docs.documents.batchUpdate({
+      documentId: fileId,
+      requestBody: { requests },
+    });
+    return { ok: true, data: { fileId, mode: "replace", result: res.data } };
+}
+
+/** True when Google says the API (Docs/Sheets) is disabled for the project. */
+export function isApiDisabledError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reason = (err as any)?.errors?.[0]?.reason ?? (err as any)?.response?.data?.error?.details?.[0]?.reason;
+  return (
+    reason === "SERVICE_DISABLED" ||
+    reason === "accessNotConfigured" ||
+    /has not been used in project|is disabled|SERVICE_DISABLED|accessNotConfigured/i.test(msg)
+  );
+}
+
+/** Pure text edit used by the Drive-only Doc fallback. */
+export function nextDocText(
+  current: string,
+  mode: string,
+  args: Record<string, unknown>,
+): { ok: true; text: string } | { ok: false; error: string } {
+  const base = current.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  if (mode === "find_replace") {
+    const find = str(args, "find") || str(args, "search");
+    const replace = str(args, "replace") || str(args, "replacement");
+    if (!find) return { ok: false, error: "find is required for find_replace" };
+    const flags = bool(args, "matchCase") ? "g" : "gi";
+    const re = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
+    return { ok: true, text: base.replace(re, () => replace) };
+  }
+  const text = str(args, "text") || str(args, "content");
+  if (!text) return { ok: false, error: "text/content is required" };
+  if (mode === "append") {
+    const trimmed = base.replace(/\s+$/, "");
+    return { ok: true, text: trimmed ? `${trimmed}\n${text}` : text };
+  }
+  return { ok: true, text };
+}
+
+async function updateDocViaDrive(
+  drive: drive_v3.Drive,
+  fileId: string,
+  mode: string,
+  args: Record<string, unknown>,
+): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+  let current = "";
+  if (mode === "append" || mode === "find_replace") {
+    const exported = await drive.files.export(
+      { fileId, mimeType: "text/plain" },
+      { responseType: "arraybuffer" },
+    );
+    current = Buffer.from(exported.data as ArrayBuffer).toString("utf8");
+  }
+  const next = nextDocText(current, mode, args);
+  if (!next.ok) return next;
+  const updated = await drive.files.update({
+    fileId,
+    media: { mimeType: "text/plain", body: Readable.from(Buffer.from(next.text, "utf8")) },
+    fields: "id,name,mimeType,modifiedTime,webViewLink",
+    supportsAllDrives: true,
+  });
+  return {
+    ok: true,
+    data: {
+      file: updated.data,
+      fileId,
+      mode: mode === "append" || mode === "find_replace" ? mode : "replace",
+      via: "drive_text_upload",
+      note: "Docs API is disabled for this Google project, so the doc text was rewritten through Drive (plain text; formatting is not kept).",
+    },
+  };
 }
 
 function parseSheetValues(
