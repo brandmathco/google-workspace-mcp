@@ -141,12 +141,10 @@ async function downloadMedia(
 }
 
 async function extractPdfText(buffer: Buffer): Promise<string> {
-  const mod = await import("pdf-parse");
-  const pdfParse = (mod as { default?: (data: Buffer) => Promise<{ text?: string }> })
-    .default;
-  if (!pdfParse) {
-    throw new Error("pdf-parse default export missing");
-  }
+  // Import the library entry (not package root) — root pdf-parse runs a test PDF open.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mod: any = await import("pdf-parse/lib/pdf-parse.js");
+  const pdfParse = mod.default ?? mod;
   const parsed = await pdfParse(buffer);
   return parsed.text ?? "";
 }
