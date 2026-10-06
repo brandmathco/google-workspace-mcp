@@ -1,3 +1,4 @@
+import { google } from "googleapis";
 import { getGoogleAuthClient, googleAuthOverride } from "./auth/googleAuth.js";
 import {
   createCalendarEvent,
@@ -104,6 +105,63 @@ export async function runPrimeGoogleTool(
             calendarId: str(args, "calendarId") || undefined,
           });
           return { ok: true, data };
+        }
+        case "drive_search_files": {
+          const drive = google.drive({ version: "v3", auth });
+          const pageSize =
+            typeof args.pageSize === "number"
+              ? Math.min(Math.max(args.pageSize, 1), 25)
+              : 15;
+          const parts: string[] = ["trashed = false"];
+          const query = str(args, "query");
+          const folderId = str(args, "folderId");
+          const mimeType = str(args, "mimeType");
+          if (folderId) {
+            parts.push(`'${folderId.replace(/'/g, "\\'")}' in parents`);
+          }
+          if (mimeType) {
+            parts.push(`mimeType = '${mimeType.replace(/'/g, "\\'")}'`);
+          }
+          if (query) {
+            const q = query.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            parts.push(`name contains '${q}'`);
+          }
+          const listed = await drive.files.list({
+            q: parts.join(" and "),
+            pageSize,
+            fields:
+              "files(id,name,mimeType,modifiedTime,size,webViewLink,md5Checksum)",
+            orderBy: "modifiedTime desc",
+            supportsAllDrives: true,
+            includeItemsFromAllDrives: true,
+          });
+          return {
+            ok: true,
+            data: {
+              files: listed.data.files ?? [],
+              query: parts.join(" and "),
+            },
+          };
+        }
+        case "drive_get_file": {
+          const fileId = str(args, "fileId");
+          if (!fileId) {
+            return { ok: false, error: "fileId is required" };
+          }
+          const drive = google.drive({ version: "v3", auth });
+          const meta = await drive.files.get({
+            fileId,
+            fields:
+              "id,name,mimeType,modifiedTime,size,webViewLink,md5Checksum",
+            supportsAllDrives: true,
+          });
+          return {
+            ok: true,
+            data: {
+              file: meta.data,
+              note: "Open webViewLink in Drive for full content when not inlined.",
+            },
+          };
         }
         default:
           return { ok: false, error: `Unsupported Prime Google tool: ${name}` };
