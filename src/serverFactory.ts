@@ -30,6 +30,7 @@ import { commerceTools, handleCommerceTool } from "./commerceTools.js";
 import { tagManagerTools, handleTagManagerTool } from "./tagManagerTools.js";
 import { linkedinTools, handleLinkedInTool } from "./linkedinTools.js";
 import { readDriveFileContent } from "./services/driveContent.js";
+import { runDriveWriteTool } from "./services/driveWrite.js";
 import { google } from "googleapis";
 
 const accountEmailProperty = {
@@ -384,6 +385,150 @@ const tools = [
         include_markdown: { type: "boolean" },
       },
       required: ["fileId"],
+    },
+  },
+
+  {
+    name: "drive_create_folder",
+    description: "Create a Google Drive folder (optional parent folderId).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        folderId: { type: "string", description: "Parent folder ID" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_create_file",
+    description:
+      "Create a Drive file: type=doc|sheet for Google Docs/Sheets (optional seed text), or mimeType + text/base64 for other files. Optional folderId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        type: { type: "string", description: "doc | sheet" },
+        mimeType: { type: "string" },
+        text: { type: "string" },
+        base64: { type: "string" },
+        folderId: { type: "string" },
+        range: { type: "string", description: "Sheet seed range (default A1)" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_upload_file",
+    description:
+      "Upload bytes to Drive from base64 or url (max 20MB). Optional folderId and mimeType.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string" },
+        base64: { type: "string" },
+        url: { type: "string" },
+        mimeType: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "drive_update_file_content",
+    description:
+      "Replace/append/find-replace Docs text; update/append Sheets cells; or upload a new revision for other files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        mode: {
+          type: "string",
+          description: "replace | append | find_replace | cells | append_rows",
+        },
+        text: { type: "string" },
+        find: { type: "string" },
+        replace: { type: "string" },
+        range: { type: "string" },
+        values: { type: "array" },
+        base64: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_update_metadata",
+    description: "Rename a Drive file or set description / appProperties / properties (custom fields).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        name: { type: "string" },
+        description: { type: "string" },
+        appProperties: { type: "object" },
+        properties: { type: "object" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_move_file",
+    description: "Move a Drive file into folderId (replaces current parents).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["fileId", "folderId"],
+    },
+  },
+  {
+    name: "drive_copy_file",
+    description: "Copy a Drive file; optional new name and destination folderId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        name: { type: "string" },
+        folderId: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_trash_file",
+    description: "Move a Drive file to trash (never permanent delete).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+      },
+      required: ["fileId"],
+    },
+  },
+  {
+    name: "drive_share_file",
+    description:
+      "Share a Drive file with one user email (role reader|commenter|writer). Off by default in agents — use carefully.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        fileId: { type: "string" },
+        email: { type: "string" },
+        role: { type: "string" },
+        sendNotification: { type: "boolean" },
+      },
+      required: ["fileId", "email"],
     },
   },
   {
@@ -809,6 +954,26 @@ export function createGoogleWorkspaceMcpServer(): Server {
             return errorResult(result.error);
           }
           return jsonResult(result.data);
+        }
+
+        case "drive_create_file":
+        case "drive_create_folder":
+        case "drive_upload_file":
+        case "drive_update_file_content":
+        case "drive_update_metadata":
+        case "drive_move_file":
+        case "drive_copy_file":
+        case "drive_trash_file":
+        case "drive_share_file": {
+          const a = (args ?? {}) as Record<string, unknown>;
+          const accountEmail =
+            typeof a.accountEmail === "string" ? a.accountEmail : undefined;
+          const auth = await getGoogleAuthClient(accountEmail);
+          const written = await runDriveWriteTool(name, a, auth);
+          if (!written.ok) {
+            return errorResult(written.error);
+          }
+          return jsonResult(written.data);
         }
         default:
           return errorResult(`Unknown tool: ${name}`);

@@ -1,5 +1,9 @@
 import { google } from "googleapis";
 import { readDriveFileContent } from "./services/driveContent.js";
+import {
+  DRIVE_WRITE_TOOLS,
+  runDriveWriteTool,
+} from "./services/driveWrite.js";
 import { getGoogleAuthClient, googleAuthOverride } from "./auth/googleAuth.js";
 import {
   createCalendarEvent,
@@ -168,6 +172,24 @@ export async function runPrimeGoogleTool(
             return { ok: false, error: result.error };
           }
           return { ok: true, data: result.data };
+        }
+        case "drive_create_file":
+        case "drive_create_folder":
+        case "drive_upload_file":
+        case "drive_update_file_content":
+        case "drive_update_metadata":
+        case "drive_move_file":
+        case "drive_copy_file":
+        case "drive_trash_file":
+        case "drive_share_file": {
+          if (!(DRIVE_WRITE_TOOLS as readonly string[]).includes(name)) {
+            return { ok: false, error: `Unsupported Drive write tool: ${name}` };
+          }
+          const written = await runDriveWriteTool(name, args, auth);
+          if (!written.ok) {
+            return { ok: false, error: written.error };
+          }
+          return { ok: true, data: written.data };
         }
         default:
           return { ok: false, error: `Unsupported Prime Google tool: ${name}` };
