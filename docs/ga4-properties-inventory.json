@@ -1,0 +1,323 @@
+{
+  "accountId": "302470867",
+  "accountName": "Brandmatchco",
+  "timeZone": "America/Edmonton",
+  "currencyCode": "CAD",
+  "notes": [
+    "One GA4 property per public brand/domain. Do not reuse BrandMatchGrowth G-XHD6TRTYG8 on client sites.",
+    "Existing in UI: BrandMatchco, Healing Joureny (typo), mailspark.io. WorKin Rehabilitation Kelowna is a separate account \u2014 leave it.",
+    "After create: install each measurementId in that site's index.html / GTM only."
+  ],
+  "alreadyExistsLikely": [
+    {
+      "displayName": "BrandMatchco",
+      "websiteUrl": "https://brandmatchco.com"
+    },
+    {
+      "displayName": "Healing Joureny",
+      "websiteUrl": "https://healingjourneycollective.ca"
+    },
+    {
+      "displayName": "mailspark.io",
+      "websiteUrl": "https://mailspark.io"
+    }
+  ],
+  "toCreate": [
+    {
+      "displayName": "BrandMatchGrowth",
+      "websiteUrl": "https://www.brandmatchgrowth.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "OpenSign",
+      "websiteUrl": "https://getopensign.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "OpenSign App",
+      "websiteUrl": "https://app.getopensign.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "EasyMode AI",
+      "websiteUrl": "https://easymode.brandmatchco.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Prototype Tool",
+      "websiteUrl": "https://prototype.brandmatchco.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "PlayBigger",
+      "websiteUrl": "https://playbigger.org",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Client Hub",
+      "websiteUrl": "https://hub.brandmatchgrowth.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Management Workspace",
+      "websiteUrl": "https://management.brandmatchco.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Security Scanner",
+      "websiteUrl": "https://website.security.brandmatchco.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Atelier Theme",
+      "websiteUrl": "https://atlierthemewp.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Wann Labs",
+      "websiteUrl": "https://wannlabs.com",
+      "group": "bmc-funnel"
+    },
+    {
+      "displayName": "Brand Brief Builder",
+      "websiteUrl": "https://brandbriefbuilder.xyz",
+      "group": "bmc-funnel"
+    },
+    {
+      "displayName": "Contract Starter",
+      "websiteUrl": "https://contractstarter.xyz",
+      "group": "bmc-funnel"
+    },
+    {
+      "displayName": "Client Fit Quiz",
+      "websiteUrl": "https://clientfitquiz.xyz",
+      "group": "bmc-funnel"
+    },
+    {
+      "displayName": "Prime Assistant",
+      "websiteUrl": "https://prime.brandmatchgrowth.com",
+      "group": "bmc"
+    },
+    {
+      "displayName": "Held Humanity",
+      "websiteUrl": "https://heldhumanitycounselling.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Namaste Knots",
+      "websiteUrl": "https://namasteknots.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Petersburg Is Growing",
+      "websiteUrl": "https://www.petersburgisgrowing.org",
+      "group": "client"
+    },
+    {
+      "displayName": "Prime One Mortgage",
+      "websiteUrl": "https://primeonemortgagegroup.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Vantage Point Wellness",
+      "websiteUrl": "https://vantagepointwellness.ca",
+      "group": "client"
+    },
+    {
+      "displayName": "Bridgeland Market",
+      "websiteUrl": "https://bridgelandmarket.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Blooms by Bridgeland",
+      "websiteUrl": "https://bloomsbybridgeland.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Avitus Wine Bar",
+      "websiteUrl": "https://avituswinebar.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Brioche YYC",
+      "websiteUrl": "https://briocheyyc.com",
+      "group": "client"
+    },
+    {
+      "displayName": "The Tasting Room",
+      "websiteUrl": "https://thetastingroomyyc.com",
+      "group": "client"
+    },
+    {
+      "displayName": "Glace Bebe",
+      "websiteUrl": "https://glacebebe.com",
+      "group": "client"
+    }
+  ],
+  "createdAt": "2026-10-07",
+  "created": [
+    {
+      "displayName": "BrandMatchGrowth",
+      "measurementId": "G-BQX0TCFRBC",
+      "websiteUrl": "https://www.brandmatchgrowth.com",
+      "propertyId": "558017652"
+    },
+    {
+      "displayName": "OpenSign",
+      "measurementId": "G-LT7N0KHS3Z",
+      "websiteUrl": "https://getopensign.com",
+      "propertyId": "558015357"
+    },
+    {
+      "displayName": "OpenSign App",
+      "measurementId": "G-NJPQ4QL1RM",
+      "websiteUrl": "https://app.getopensign.com",
+      "propertyId": "558034095"
+    },
+    {
+      "displayName": "EasyMode AI",
+      "measurementId": "G-C4JS3WW7CL",
+      "websiteUrl": "https://easymode.brandmatchco.com",
+      "propertyId": "558027248"
+    },
+    {
+      "displayName": "Prototype Tool",
+      "measurementId": "G-CB7DQ98L8F",
+      "websiteUrl": "https://prototype.brandmatchco.com",
+      "propertyId": "558059573"
+    },
+    {
+      "displayName": "PlayBigger",
+      "measurementId": "G-ZF5R451CN0",
+      "websiteUrl": "https://playbigger.org",
+      "propertyId": "558032780"
+    },
+    {
+      "displayName": "Client Hub",
+      "measurementId": "G-XD7SM49JHD",
+      "websiteUrl": "https://hub.brandmatchgrowth.com",
+      "propertyId": "558018869"
+    },
+    {
+      "displayName": "Management Workspace",
+      "measurementId": "G-SQ7GJZNN3P",
+      "websiteUrl": "https://management.brandmatchco.com",
+      "propertyId": "558050431"
+    },
+    {
+      "displayName": "Security Scanner",
+      "measurementId": "G-JBNJS7SZLV",
+      "websiteUrl": "https://website.security.brandmatchco.com",
+      "propertyId": "558051244"
+    },
+    {
+      "displayName": "Atelier Theme",
+      "measurementId": "G-R43MHNX4CF",
+      "websiteUrl": "https://atlierthemewp.com",
+      "propertyId": "558039405"
+    },
+    {
+      "displayName": "Wann Labs",
+      "measurementId": "G-ZP9ZTR8H19",
+      "websiteUrl": "https://wannlabs.com",
+      "propertyId": "558025333"
+    },
+    {
+      "displayName": "Brand Brief Builder",
+      "measurementId": "G-FYNY6P4B31",
+      "websiteUrl": "https://brandbriefbuilder.xyz",
+      "propertyId": "558036296"
+    },
+    {
+      "displayName": "Contract Starter",
+      "measurementId": "G-0WMWLKBLNC",
+      "websiteUrl": "https://contractstarter.xyz",
+      "propertyId": "558017653"
+    },
+    {
+      "displayName": "Client Fit Quiz",
+      "measurementId": "G-9VTXQ4C1K5",
+      "websiteUrl": "https://clientfitquiz.xyz",
+      "propertyId": "558056246"
+    },
+    {
+      "displayName": "Prime Assistant",
+      "measurementId": "G-1NXL8NVZ0L",
+      "websiteUrl": "https://prime.brandmatchgrowth.com",
+      "propertyId": "558028842"
+    },
+    {
+      "displayName": "Held Humanity",
+      "measurementId": "G-N9ZDXQWVK5",
+      "websiteUrl": "https://heldhumanitycounselling.com",
+      "propertyId": "558047907"
+    },
+    {
+      "displayName": "Namaste Knots",
+      "measurementId": "G-H8W2N60TPS",
+      "websiteUrl": "https://namasteknots.com",
+      "propertyId": "558059191"
+    },
+    {
+      "displayName": "Petersburg Is Growing",
+      "measurementId": "G-1Q10E4831Z",
+      "websiteUrl": "https://www.petersburgisgrowing.org",
+      "propertyId": "558009621"
+    },
+    {
+      "displayName": "Prime One Mortgage",
+      "measurementId": "G-XRDG5X0M55",
+      "websiteUrl": "https://primeonemortgagegroup.com",
+      "propertyId": "558040415"
+    },
+    {
+      "displayName": "Vantage Point Wellness",
+      "measurementId": "G-Z2536C5E40",
+      "websiteUrl": "https://vantagepointwellness.ca",
+      "propertyId": "558035389"
+    },
+    {
+      "displayName": "Bridgeland Market",
+      "measurementId": "G-8THYDQ1CJS",
+      "websiteUrl": "https://bridgelandmarket.com",
+      "propertyId": "558049522"
+    },
+    {
+      "displayName": "Blooms by Bridgeland",
+      "measurementId": "G-N5N4HERWT1",
+      "websiteUrl": "https://bloomsbybridgeland.com",
+      "propertyId": "558022806"
+    },
+    {
+      "displayName": "Avitus Wine Bar",
+      "measurementId": "G-SDVS2MTX7L",
+      "websiteUrl": "https://avituswinebar.com",
+      "propertyId": "558050835"
+    },
+    {
+      "displayName": "Brioche YYC",
+      "measurementId": "G-JG8E9F2J95",
+      "websiteUrl": "https://briocheyyc.com",
+      "propertyId": "558059977"
+    },
+    {
+      "displayName": "The Tasting Room",
+      "measurementId": "G-57DEDMFZMW",
+      "websiteUrl": "https://thetastingroomyyc.com",
+      "propertyId": "558024114"
+    },
+    {
+      "displayName": "Glace Bebe",
+      "measurementId": "G-XR54BN19WJ",
+      "websiteUrl": "https://glacebebe.com",
+      "propertyId": "558060078"
+    },
+    {
+      "displayName": "Healing Journey Collective",
+      "measurementId": "G-M4Y5VZRXRH",
+      "websiteUrl": "https://healingjourneycollective.ca",
+      "propertyId": "558048714"
+    }
+  ],
+  "legacySharedId": "G-XHD6TRTYG8"
+}

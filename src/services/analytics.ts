@@ -258,3 +258,185 @@ export async function analyticsGetMetadata(input: {
     })),
   };
 }
+
+/** Normalize an Analytics account id to `accounts/{id}`. */
+export function normalizeAccountResourceName(accountId: string): string {
+  const trimmed = accountId.trim();
+  if (!trimmed) {
+    throw new Error("accountId is required");
+  }
+  if (trimmed.startsWith("accounts/")) {
+    return trimmed;
+  }
+  if (!/^\d+$/.test(trimmed)) {
+    throw new Error(
+      `Invalid accountId "${accountId}". Use a numeric account ID or accounts/{id}.`,
+    );
+  }
+  return `accounts/${trimmed}`;
+}
+
+function normalizeWebsiteUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    throw new Error("websiteUrl is required");
+  }
+  try {
+    const parsed = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error(`Invalid websiteUrl protocol: ${parsed.protocol}`);
+    }
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    throw new Error(`Invalid websiteUrl "${url}"`);
+  }
+}
+
+export interface AnalyticsCreateWebPropertyInput {
+  accountEmail?: string;
+  /** Numeric account ID or `accounts/{id}`. Brandmatchco = 302470867. */
+  accountId: string;
+  displayName: string;
+  websiteUrl: string;
+  timeZone?: string;
+  currencyCode?: string;
+}
+
+/**
+ * Create a GA4 property + web data stream and return the Measurement ID (G-…).
+ * Requires OAuth scope analytics.edit (re-authorize after upgrade).
+ */
+export async function analyticsCreateWebProperty(
+  input: AnalyticsCreateWebPropertyInput,
+) {
+  const auth = await getGoogleAuthClient(input.accountEmail);
+  const admin = analyticsAdmin(auth);
+  const parent = normalizeAccountResourceName(input.accountId);
+  const displayName = input.displayName.trim();
+  if (!displayName) {
+    throw new Error("displayName is required");
+  }
+  const websiteUrl = normalizeWebsiteUrl(input.websiteUrl);
+  const timeZone = (input.timeZone ?? "America/Edmonton").trim();
+  const currencyCode = (input.currencyCode ?? "CAD").trim().toUpperCase();
+
+  const propRes = await admin.properties.create({
+    requestBody: {
+      parent,
+      displayName,
+      timeZone,
+      currencyCode,
+    },
+  });
+
+  const propertyName = propRes.data.name?.trim();
+  if (!propertyName) {
+    throw new Error("GA4 property create returned no property name");
+  }
+
+  const streamRes = await admin.properties.dataStreams.create({
+    parent: propertyName,
+    requestBody: {
+      type: "WEB_DATA_STREAM",
+      displayName: `${displayName} Web`,
+      webStreamData: {
+        defaultUri: websiteUrl,
+      },
+    },
+  });
+
+  const measurementId = streamRes.data.webStreamData?.measurementId?.trim() ?? "";
+  if (!measurementId) {
+    throw new Error(
+      `Created ${propertyName} but no measurementId on the web data stream. Check Admin → Data streams.`,
+    );
+  }
+
+  return {
+    account: parent,
+    property: propertyName,
+    propertyId: propertyName.replace(/^properties\//, ""),
+    displayName,
+    websiteUrl,
+    dataStream: streamRes.data.name ?? "",
+    measurementId,
+    timeZone,
+    currencyCode,
+  };
+}
+
+export interface AnalyticsCreateWebPropertyBatchItem {
+  displayName: string;
+  websiteUrl: string;
+  timeZone?: string;
+  currencyCode?: string;
+}
+
+/**
+ * Create many GA4 web properties under one account. Skips names that already exist
+ * when skipExisting is true (matched by case-insensitive displayName).
+ */
+export async function analyticsCreateWebPropertyBatch(input: {
+  accountEmail?: string;
+  accountId: string;
+  properties: AnalyticsCreateWebPropertyBatchItem[];
+  skipExisting?: boolean;
+}) {
+  const skipExisting = input.skipExisting !== false;
+  const existingNames = new Set<string>();
+  if (skipExisting) {
+    const summaries = await analyticsListAccountSummaries(input.accountEmail);
+    const parent = normalizeAccountResourceName(input.accountId);
+    for (const account of summaries.accounts) {
+      if (account.account !== parent) continue;
+      for (const p of account.properties) {
+        existingNames.add(p.displayName.trim().toLowerCase());
+      }
+    }
+  }
+
+  const created: Array<Awaited<ReturnType<typeof analyticsCreateWebProperty>>> = [];
+  const skipped: Array<{ displayName: string; websiteUrl: string; reason: string }> = [];
+  const errors: Array<{ displayName: string; websiteUrl: string; error: string }> = [];
+
+  for (const item of input.properties) {
+    const displayName = item.displayName.trim();
+    const key = displayName.toLowerCase();
+    if (skipExisting && existingNames.has(key)) {
+      skipped.push({
+        displayName,
+        websiteUrl: item.websiteUrl,
+        reason: "property displayName already exists on this account",
+      });
+      continue;
+    }
+    try {
+      const row = await analyticsCreateWebProperty({
+        accountEmail: input.accountEmail,
+        accountId: input.accountId,
+        displayName,
+        websiteUrl: item.websiteUrl,
+        timeZone: item.timeZone,
+        currencyCode: item.currencyCode,
+      });
+      created.push(row);
+      existingNames.add(key);
+    } catch (err) {
+      errors.push({
+        displayName,
+        websiteUrl: item.websiteUrl,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return {
+    accountId: normalizeAccountResourceName(input.accountId),
+    createdCount: created.length,
+    skippedCount: skipped.length,
+    errorCount: errors.length,
+    created,
+    skipped,
+    errors,
+  };
+}

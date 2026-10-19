@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  analyticsCreateWebProperty,
+  analyticsCreateWebPropertyBatch,
   analyticsGetMetadata,
   analyticsListAccountSummaries,
   analyticsRunRealtimeReport,
@@ -114,6 +116,72 @@ export const analyticsTools = [
       required: ["metrics"],
     },
   },
+  {
+    name: "analytics_create_web_property",
+    description:
+      "Create a GA4 property + web data stream under an Analytics account and return the Measurement ID (G-…). Requires analytics.edit OAuth scope (re-authorize after upgrade). Brandmatchco account id: 302470867.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        accountId: {
+          type: "string",
+          description: "GA account id (numeric or accounts/{id}). Brandmatchco = 302470867.",
+        },
+        displayName: {
+          type: "string",
+          description: "Property display name shown in Analytics UI",
+        },
+        websiteUrl: {
+          type: "string",
+          description: "Primary website URL for the web data stream (https://…)",
+        },
+        timeZone: {
+          type: "string",
+          description: "IANA time zone (default America/Edmonton)",
+        },
+        currencyCode: {
+          type: "string",
+          description: "ISO 4217 currency (default CAD)",
+        },
+      },
+      required: ["accountId", "displayName", "websiteUrl"],
+    },
+  },
+  {
+    name: "analytics_create_web_property_batch",
+    description:
+      "Create many GA4 web properties under one account. By default skips displayNames that already exist. Returns Measurement IDs for each created property. Requires analytics.edit.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        accountId: {
+          type: "string",
+          description: "GA account id (numeric or accounts/{id}). Brandmatchco = 302470867.",
+        },
+        skipExisting: {
+          type: "boolean",
+          description: "Skip properties whose displayName already exists (default true)",
+        },
+        properties: {
+          type: "array",
+          description: "List of properties to create",
+          items: {
+            type: "object",
+            properties: {
+              displayName: { type: "string" },
+              websiteUrl: { type: "string" },
+              timeZone: { type: "string" },
+              currencyCode: { type: "string" },
+            },
+            required: ["displayName", "websiteUrl"],
+          },
+        },
+      },
+      required: ["accountId", "properties"],
+    },
+  },
 ] as const;
 
 const accountEmailSchema = z.string().email().optional();
@@ -170,6 +238,39 @@ export async function handleAnalyticsTool(
         })
         .parse(args ?? {});
       return jsonResult(await analyticsRunRealtimeReport(input));
+    }
+    case "analytics_create_web_property": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          accountId: z.string().min(1),
+          displayName: z.string().min(1),
+          websiteUrl: z.string().min(1),
+          timeZone: z.string().min(1).optional(),
+          currencyCode: z.string().min(3).max(3).optional(),
+        })
+        .parse(args ?? {});
+      return jsonResult(await analyticsCreateWebProperty(input));
+    }
+    case "analytics_create_web_property_batch": {
+      const input = z
+        .object({
+          accountEmail: accountEmailSchema,
+          accountId: z.string().min(1),
+          skipExisting: z.boolean().optional(),
+          properties: z
+            .array(
+              z.object({
+                displayName: z.string().min(1),
+                websiteUrl: z.string().min(1),
+                timeZone: z.string().min(1).optional(),
+                currencyCode: z.string().min(3).max(3).optional(),
+              }),
+            )
+            .min(1),
+        })
+        .parse(args ?? {});
+      return jsonResult(await analyticsCreateWebPropertyBatch(input));
     }
     default:
       return null;

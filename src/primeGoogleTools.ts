@@ -10,9 +10,18 @@ import {
   listUpcomingEvents,
 } from "./services/calendar.js";
 import {
+  batchModifyMessages,
   createDraftMessage,
   createGmailClient,
+  createLabel,
+  deleteMessage,
+  listLabels,
   listMessages,
+  markMessageRead,
+  markMessageUnread,
+  moveMessage,
+  trashMessage,
+  untrashMessage,
 } from "./services/gmail.js";
 
 export type PrimeGoogleToolResult = {
@@ -24,6 +33,12 @@ export type PrimeGoogleToolResult = {
 function str(args: Record<string, unknown>, key: string): string {
   const value = args[key];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function strArray(args: Record<string, unknown>, key: string): string[] | undefined {
+  const val = args[key];
+  if (!Array.isArray(val)) return undefined;
+  return val.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
 }
 
 /**
@@ -77,6 +92,96 @@ export async function runPrimeGoogleTool(
             body,
             cc: str(args, "cc") || undefined,
             bcc: str(args, "bcc") || undefined,
+          });
+          return { ok: true, data };
+        }
+        case "gmail_move":
+        case "gmail_modify_labels": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          const addLabelIds = strArray(args, "addLabelIds");
+          const removeLabelIds = strArray(args, "removeLabelIds");
+          if (!addLabelIds?.length && !removeLabelIds?.length) {
+            return { ok: false, error: "Provide addLabelIds and/or removeLabelIds" };
+          }
+          const data = await moveMessage(auth, {
+            messageId,
+            addLabelIds,
+            removeLabelIds,
+          });
+          return { ok: true, data };
+        }
+        case "gmail_mark_as_read": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          const data = await markMessageRead(auth, messageId);
+          return { ok: true, data };
+        }
+        case "gmail_mark_as_unread": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          const data = await markMessageUnread(auth, messageId);
+          return { ok: true, data };
+        }
+        case "gmail_trash_message":
+        case "gmail_trash": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          const data = await trashMessage(auth, messageId);
+          return { ok: true, data };
+        }
+        case "gmail_untrash_message":
+        case "gmail_untrash": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          const data = await untrashMessage(auth, messageId);
+          return { ok: true, data };
+        }
+        case "gmail_delete_message":
+        case "gmail_delete": {
+          const messageId = str(args, "messageId");
+          if (!messageId) {
+            return { ok: false, error: "messageId is required" };
+          }
+          if (args.confirm !== true) {
+            return { ok: false, error: "confirm: true is required to permanently delete a message" };
+          }
+          const data = await deleteMessage(auth, messageId);
+          return { ok: true, data };
+        }
+        case "gmail_list_labels": {
+          const data = await listLabels(auth);
+          return { ok: true, data };
+        }
+        case "gmail_create_label": {
+          const labelName = str(args, "name");
+          if (!labelName) {
+            return { ok: false, error: "name is required" };
+          }
+          const data = await createLabel(auth, { name: labelName });
+          return { ok: true, data };
+        }
+        case "gmail_batch_modify": {
+          const ids = strArray(args, "ids") || strArray(args, "messageIds");
+          if (!ids || ids.length === 0) {
+            return { ok: false, error: "ids array is required" };
+          }
+          const addLabelIds = strArray(args, "addLabelIds");
+          const removeLabelIds = strArray(args, "removeLabelIds");
+          const data = await batchModifyMessages(auth, {
+            ids,
+            addLabelIds,
+            removeLabelIds,
           });
           return { ok: true, data };
         }

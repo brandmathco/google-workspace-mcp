@@ -7,14 +7,21 @@ import { z } from "zod";
 import { getAccountStore } from "./auth/accountStore.js";
 import { getGoogleAuthClient } from "./auth/googleAuth.js";
 import {
+  batchModifyMessages,
   createDraftMessage,
   createDraftReply,
+  createLabel,
+  deleteMessage,
   getMessage,
   listLabels,
   listMessages,
+  markMessageRead,
+  markMessageUnread,
   moveMessage,
   replyToMessage,
   sendMessage,
+  trashMessage,
+  untrashMessage,
 } from "./services/gmail.js";
 import {
   downloadMessageAttachment,
@@ -251,7 +258,7 @@ const tools = [
   {
     name: "gmail_move",
     description:
-      "Move a Gmail message by adding/removing labels. Archive with removeLabelIds=['INBOX']; trash with addLabelIds=['TRASH'].",
+      "Move a Gmail message by adding/removing labels. Archive with removeLabelIds=['INBOX']; label a message with addLabelIds.",
     inputSchema: {
       type: "object",
       properties: {
@@ -272,11 +279,110 @@ const tools = [
     },
   },
   {
+    name: "gmail_mark_as_read",
+    description: "Mark a Gmail message as read (opened) by removing the UNREAD label.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_mark_as_unread",
+    description: "Mark a Gmail message as unread (unopened) by adding the UNREAD label.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_trash_message",
+    description: "Move a Gmail message to the Trash. (Can be restored with gmail_untrash_message).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID to move to trash" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_untrash_message",
+    description: "Restore a Gmail message from the Trash.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID to restore from trash" },
+      },
+      required: ["messageId"],
+    },
+  },
+  {
+    name: "gmail_delete_message",
+    description: "Permanently delete a Gmail message (cannot be undone). Requires confirm: true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        messageId: { type: "string", description: "Gmail message ID to permanently delete" },
+        confirm: { type: "boolean", description: "Must be true to confirm permanent deletion" },
+      },
+      required: ["messageId", "confirm"],
+    },
+  },
+  {
     name: "gmail_list_labels",
-    description: "List Gmail labels with IDs (useful before moving mail).",
+    description: "List Gmail labels with IDs (useful before moving or organizing mail).",
     inputSchema: {
       type: "object",
       properties: { ...accountEmailProperty },
+    },
+  },
+  {
+    name: "gmail_create_label",
+    description: "Create a new user label in Gmail.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        name: { type: "string", description: "Name of the label to create" },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "gmail_batch_modify",
+    description: "Modify labels on multiple Gmail messages at once (e.g. batch mark read, batch archive, batch label).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...accountEmailProperty,
+        ids: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of Gmail message IDs",
+        },
+        addLabelIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Label IDs to add to all messages",
+        },
+        removeLabelIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Label IDs to remove from all messages",
+        },
+      },
+      required: ["ids"],
     },
   },
   {
@@ -632,6 +738,29 @@ const moveSchema = z.object({
   removeLabelIds: z.array(z.string()).optional(),
 });
 
+const messageActionSchema = z.object({
+  accountEmail: accountEmailSchema,
+  messageId: z.string().min(1),
+});
+
+const deleteMessageSchema = z.object({
+  accountEmail: accountEmailSchema,
+  messageId: z.string().min(1),
+  confirm: z.boolean(),
+});
+
+const createLabelSchema = z.object({
+  accountEmail: accountEmailSchema,
+  name: z.string().min(1),
+});
+
+const batchModifySchema = z.object({
+  accountEmail: accountEmailSchema,
+  ids: z.array(z.string().min(1)).min(1),
+  addLabelIds: z.array(z.string()).optional(),
+  removeLabelIds: z.array(z.string()).optional(),
+});
+
 const createEventSchema = z.object({
   accountEmail: accountEmailSchema,
   summary: z.string().min(1),
@@ -853,12 +982,53 @@ export function createGoogleWorkspaceMcpServer(): Server {
           const auth = await getGoogleAuthClient(input.accountEmail);
           return jsonResult(await moveMessage(auth, input));
         }
+        case "gmail_mark_as_read": {
+          const input = messageActionSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await markMessageRead(auth, input.messageId));
+        }
+        case "gmail_mark_as_unread": {
+          const input = messageActionSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await markMessageUnread(auth, input.messageId));
+        }
+        case "gmail_trash_message": {
+          const input = messageActionSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await trashMessage(auth, input.messageId));
+        }
+        case "gmail_untrash_message": {
+          const input = messageActionSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await untrashMessage(auth, input.messageId));
+        }
+        case "gmail_delete_message": {
+          const input = deleteMessageSchema.parse(args ?? {});
+          if (!input.confirm) {
+            return errorResult("confirm: true is required to permanently delete a message");
+          }
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await deleteMessage(auth, input.messageId));
+        }
         case "gmail_list_labels": {
           const accountEmail = accountEmailSchema.parse(
             (args as { accountEmail?: string } | undefined)?.accountEmail,
           );
           const auth = await getGoogleAuthClient(accountEmail);
           return jsonResult(await listLabels(auth));
+        }
+        case "gmail_create_label": {
+          const input = createLabelSchema.parse(args ?? {});
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await createLabel(auth, { name: input.name }));
+        }
+        case "gmail_batch_modify": {
+          const input = batchModifySchema.parse(args ?? {});
+          if (!input.addLabelIds?.length && !input.removeLabelIds?.length) {
+            return errorResult("Provide addLabelIds and/or removeLabelIds");
+          }
+          const auth = await getGoogleAuthClient(input.accountEmail);
+          return jsonResult(await batchModifyMessages(auth, input));
         }
         case "calendar_create_event": {
           const input = createEventSchema.parse(args ?? {});

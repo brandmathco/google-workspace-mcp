@@ -17,6 +17,8 @@ export const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/tasks",
   "https://www.googleapis.com/auth/adwords",
   "https://www.googleapis.com/auth/analytics.readonly",
+  // Create/edit GA4 properties, data streams, and measurement IDs (Admin API writes).
+  "https://www.googleapis.com/auth/analytics.edit",
   "https://www.googleapis.com/auth/adsense.readonly",
   "https://www.googleapis.com/auth/cloud-platform",
   "https://www.googleapis.com/auth/tagmanager.readonly",

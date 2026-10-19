@@ -337,6 +337,81 @@ export async function moveMessage(
   };
 }
 
+export async function trashMessage(
+  auth: OAuth2Client | JWT,
+  messageId: string,
+): Promise<{ id: string; trashed: boolean }> {
+  const gmail = await createGmailClient(auth);
+  const response = await gmail.users.messages.trash({
+    userId: "me",
+    id: messageId,
+  });
+  return {
+    id: response.data.id ?? messageId,
+    trashed: true,
+  };
+}
+
+export async function untrashMessage(
+  auth: OAuth2Client | JWT,
+  messageId: string,
+): Promise<{ id: string; trashed: boolean }> {
+  const gmail = await createGmailClient(auth);
+  const response = await gmail.users.messages.untrash({
+    userId: "me",
+    id: messageId,
+  });
+  return {
+    id: response.data.id ?? messageId,
+    trashed: false,
+  };
+}
+
+export async function deleteMessage(
+  auth: OAuth2Client | JWT,
+  messageId: string,
+): Promise<{ id: string; deleted: boolean }> {
+  const gmail = await createGmailClient(auth);
+  await gmail.users.messages.delete({
+    userId: "me",
+    id: messageId,
+  });
+  return {
+    id: messageId,
+    deleted: true,
+  };
+}
+
+export async function markMessageRead(
+  auth: OAuth2Client | JWT,
+  messageId: string,
+): Promise<{ id: string; isRead: boolean; labelIds: string[] }> {
+  const res = await moveMessage(auth, {
+    messageId,
+    removeLabelIds: ["UNREAD"],
+  });
+  return {
+    id: res.id,
+    isRead: !res.labelIds.includes("UNREAD"),
+    labelIds: res.labelIds,
+  };
+}
+
+export async function markMessageUnread(
+  auth: OAuth2Client | JWT,
+  messageId: string,
+): Promise<{ id: string; isRead: boolean; labelIds: string[] }> {
+  const res = await moveMessage(auth, {
+    messageId,
+    addLabelIds: ["UNREAD"],
+  });
+  return {
+    id: res.id,
+    isRead: false,
+    labelIds: res.labelIds,
+  };
+}
+
 export async function listLabels(auth: OAuth2Client | JWT) {
   const gmail = await createGmailClient(auth);
   const response = await gmail.users.labels.list({ userId: "me" });
@@ -345,4 +420,47 @@ export async function listLabels(auth: OAuth2Client | JWT) {
     name: label.name ?? "",
     type: label.type ?? "",
   }));
+}
+
+export async function createLabel(
+  auth: OAuth2Client | JWT,
+  options: { name: string },
+): Promise<{ id: string; name: string; type: string }> {
+  const gmail = await createGmailClient(auth);
+  const response = await gmail.users.labels.create({
+    userId: "me",
+    requestBody: {
+      name: options.name,
+      labelListVisibility: "labelShow",
+      messageListVisibility: "show",
+    },
+  });
+  return {
+    id: response.data.id ?? "",
+    name: response.data.name ?? options.name,
+    type: response.data.type ?? "user",
+  };
+}
+
+export async function batchModifyMessages(
+  auth: OAuth2Client | JWT,
+  options: {
+    ids: string[];
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  },
+): Promise<{ ids: string[]; success: boolean }> {
+  const gmail = await createGmailClient(auth);
+  await gmail.users.messages.batchModify({
+    userId: "me",
+    requestBody: {
+      ids: options.ids,
+      addLabelIds: options.addLabelIds,
+      removeLabelIds: options.removeLabelIds,
+    },
+  });
+  return {
+    ids: options.ids,
+    success: true,
+  };
 }
